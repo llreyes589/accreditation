@@ -7,6 +7,17 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/license.svg" alt="License"></a>
 </p>
 
+## Accreditation & Training API
+
+The API is served below `/api` and authenticates with Sanctum bearer tokens.
+
+- Public: `POST /register/institution`, `POST /register/resident`, and `POST /login`.
+- Pending accounts can only use `GET /pending-approval` and email-verification endpoints. All other protected endpoints require both a verified email address and Admin approval.
+- Training Officers manage their institution's documents, consultants, assessments, resident results, papers, case logs, and accreditation submissions.
+- Admin endpoints are under `/api/admin` and cover pending reviews, staff accounts, accreditation decisions, and policy settings.
+
+Run the scheduler in production with `php artisan schedule:run` every minute. It recalculates resident calendar year levels nightly and runs December document-expiry reminders daily. Seed defaults with `php artisan db:seed`.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

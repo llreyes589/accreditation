@@ -13,6 +13,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run()
     {
-        // User::factory(10)->create();
+        \App\Models\Setting::updateOrCreate(['key' => 'track_durations'], ['value' => ['AP' => 3, 'CP' => 3, 'AP_CP' => 3]]);
+        \App\Models\Setting::updateOrCreate(['key' => 'promotion_thresholds'], ['value' => []]);
+        \App\Models\Setting::updateOrCreate(['key' => 'accreditation_years'], ['value' => 1]);
+        foreach (['Admin', 'Accreditor', 'TrainingOfficer', 'Resident'] as $role) \App\Models\Role::firstOrCreate(['name' => $role, 'guard_name' => 'api']);
     }
 }

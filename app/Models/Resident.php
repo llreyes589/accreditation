@@ -23,6 +23,10 @@ class Resident extends Model
     {
         return $this->hasMany(QuizResult::class);
     }
+    public function transfers()
+    {
+        return $this->hasMany(ResidentTransfer::class);
+    }
     public function refreshYearLevel($duration)
     {
         if (!$this->date_accepted) return;

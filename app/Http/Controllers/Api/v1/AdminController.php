@@ -36,7 +36,8 @@ class AdminController extends Controller
     }
     public function approveAccreditation(Request $r, Accreditation $a)
     {
-        $years = max(1, min(3, (int)Setting::getValue('accreditation_years', 1)));
+        $years = (int)Setting::getValue('accreditation_years', 1);
+        $years = in_array($years, [1, 3], true) ? $years : 1;
         $a->update(['status' => 'approved', 'approved_by' => $r->user()->id, 'valid_from' => today(), 'valid_until' => today()->addYears($years)]);
         return response()->json($a);
     }
@@ -47,6 +48,7 @@ class AdminController extends Controller
     }
     public function settings(Request $r)
     {
+        $r->validate(['settings.accreditation_years' => 'nullable|integer|in:1,3']);
         foreach ($r->validate(['settings' => 'required|array'])['settings'] as $k => $v) if (in_array($k, ['track_durations', 'promotion_thresholds', 'accreditation_years'])) Setting::updateOrCreate(['key' => $k], ['value' => $v]);
         return response()->json(Setting::all());
     }

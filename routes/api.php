@@ -35,6 +35,20 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/case-logs', [DomainController::class, 'storeCase']);
             Route::get('/accreditations', [DomainController::class, 'accreditations']);
             Route::post('/accreditations', [DomainController::class, 'submitAccreditation']);
+            Route::get('/training-officers', [DomainController::class, 'trainingOfficers']);
+            Route::post('/training-officers', [DomainController::class, 'storeTrainingOfficer']);
+            Route::get('/residents', [DomainController::class, 'residents']);
+            Route::post('/residents', [DomainController::class, 'storeResident']);
+            Route::post('/residents/{resident}/transfers', [DomainController::class, 'requestTransfer']);
+            Route::get('/transfers/incoming', [DomainController::class, 'incomingTransfers']);
+            Route::post('/transfers/{transfer}/accept', [DomainController::class, 'acceptTransfer']);
+            Route::post('/transfers/{transfer}/reject', [DomainController::class, 'rejectTransfer']);
+            Route::get('/consultants/{consultant}/documents', [DomainController::class, 'consultantDocuments']);
+            Route::post('/consultants/{consultant}/documents', [DomainController::class, 'storeConsultantDocument']);
+            Route::get('/rotations', [DomainController::class, 'rotations']);
+            Route::post('/rotations', [DomainController::class, 'storeRotation']);
+            Route::post('/rotations/{rotation}/assignments', [DomainController::class, 'storeRotationAssignment']);
+            Route::put('/rotation-assignments/{assignment}', [DomainController::class, 'updateRotationAssignment']);
         });
         Route::prefix('admin')->middleware('role:Admin')->group(function () {
             Route::get('/pending', [AdminController::class, 'pending']);

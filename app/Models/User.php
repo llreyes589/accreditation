@@ -27,6 +27,7 @@ class User extends Authenticatable implements Auditable, MustVerifyEmail
         'approved_at',
         'approved_by',
         'rejection_reason',
+        'email_verified_at'
     ];
 
     /**
@@ -67,7 +68,7 @@ class User extends Authenticatable implements Auditable, MustVerifyEmail
     }
     public function assignRole($role)
     {
-        $roleModel = Role::firstOrCreate(['name' => $role, 'guard_name' => 'api']);
+        $roleModel = Role::firstOrCreate(['name' => $role]);
         $this->roles()->syncWithoutDetaching([$roleModel->id]);
         $this->touch();
     }

@@ -14,14 +14,14 @@ class CreateAdminSeeder extends Migration
      */
     public function up()
     {
-        $roleName = 'admin';
-        $adminRole = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'api']);
+        $roleName = 'Admin';
+        $adminRole = Role::firstOrCreate(['name' => $roleName]);
 
         $adminUser = User::firstOrCreate(
-            ['email' => 'admin@accreditation'],
+            ['email' => 'admin@accreditation.com'],
             [
                 'name' => 'Admin User',
-                'password' => Hash::make('password'),
+                'password' => '$2y$10$oNNWw8VbqkvdY7s8emQmMu3FLd0ykn6ekwpFRLmdpm1Dth50QUMpC',
                 'status' => 'approved',
                 'email_verified_at' => now(),
             ]

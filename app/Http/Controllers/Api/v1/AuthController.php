@@ -12,9 +12,9 @@ class AuthController extends Controller
 {
     public function login(Request $r)
     {
-        $d = $r->validate(['email' => 'required|string|email', 'password' => 'required|string']);
-        $u = User::where('email', $d['email'])->first();
-        if (!$u || !Hash::check($d['password'], $u->password)) throw ValidationException::withMessages(['email' => ['The provided credentials are incorrect.']]);
+        $d = $r->validate(['username' => 'required|string', 'password' => 'required|string']);
+        $u = User::where('username', $d['username'])->first();
+        if (!$u || !Hash::check($d['password'], $u->password)) throw ValidationException::withMessages(['username' => ['The provided credentials are incorrect.']]);
         return response()->json(['user' => $u->load('roles', 'trainingOfficer.institution', 'resident.institution'), 'token' => $u->createToken('auth-token')->plainTextToken]);
     }
     public function registerInstitution(Request $r)

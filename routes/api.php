@@ -22,6 +22,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/notifications', [DomainController::class, 'notifications']);
         Route::post('/notifications/{id}/read', [DomainController::class, 'readNotification']);
         Route::middleware('role:TrainingOfficer|TrainingInstitution')->group(function () {
+            Route::get('/institution-profile', [DomainController::class, 'institutionProfile']);
+            Route::put('/institution-profile', [DomainController::class, 'updateInstitutionProfile']);
             Route::get('/documents', [DomainController::class, 'documents']);
             Route::post('/documents', [DomainController::class, 'storeDocument']);
             Route::get('/consultants', [DomainController::class, 'consultants']);

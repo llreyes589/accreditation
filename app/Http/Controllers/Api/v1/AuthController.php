@@ -19,7 +19,24 @@ class AuthController extends Controller
     }
     public function registerInstitution(Request $r)
     {
-        $d = $r->validate(['institution.name' => 'required|string|max:255', 'institution.address' => 'nullable|string', 'institution.hospital_level' => 'nullable|string|max:255', 'name' => 'required|string|max:255', 'username' => 'required|string|max:255|unique:users,username', 'email' => 'required|email|unique:users,email', 'password' => 'required|string|min:8|confirmed', 'phone' => 'nullable|string|max:50', 'telegram_handle' => 'nullable|string|max:255']);
+        $d = $r->validate([
+            'institution.name' => 'required|string|max:255',
+            'institution.address' => 'nullable|string',
+            'institution.hospital_level' => 'nullable|string|max:255',
+            'institution.laboratory_level' => 'nullable|string|max:255',
+            'institution.bsf_category' => 'nullable|string|max:255',
+            'institution.director' => 'nullable|string|max:255',
+            'institution.chairman' => 'nullable|string|max:255',
+            'institution.contact_number' => 'nullable|string|max:50',
+            'institution.email' => 'nullable|email|max:255',
+            'institution.year_program_opened' => 'nullable|integer|min:1900|max:2100',
+            'name' => 'required|string|max:255',
+            'username' => 'required|string|max:255|unique:users,username',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8|confirmed',
+            'phone' => 'nullable|string|max:50',
+            'telegram_handle' => 'nullable|string|max:255',
+        ]);
         $u = DB::transaction(function () use ($d) {
             $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => 'pending']);
             $u->assignRole('TrainingInstitution');

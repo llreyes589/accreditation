@@ -35,6 +35,41 @@ class RegistrationTest extends TestCase
         $this->assertNull($user->trainingOfficer);
     }
 
+    public function test_register_institution_stores_profile_fields(): void
+    {
+        Role::firstOrCreate(['name' => 'TrainingInstitution']);
+        $payload = [
+            'institution' => [
+                'name' => 'St. Luke',
+                'address' => '123 QC Ave',
+                'hospital_level' => 'Level 3',
+                'laboratory_level' => 'Lab 2',
+                'bsf_category' => 'A',
+                'director' => 'Dr. Director',
+                'chairman' => 'Dr. Chairman',
+                'contact_number' => '0281234567',
+                'email' => 'inst@stluke.ph',
+                'year_program_opened' => 2019,
+            ],
+            'name' => 'Dr. Owner',
+            'username' => 'owner9',
+            'email' => 'owner9@stluke.ph',
+            'password' => 'password1',
+            'password_confirmation' => 'password1',
+        ];
+        $this->postJson('/api/register/institution', $payload)->assertStatus(201);
+        $i = Institution::where('name', 'St. Luke')->first();
+        $this->assertEquals('123 QC Ave', $i->address);
+        $this->assertEquals('Level 3', $i->hospital_level);
+        $this->assertEquals('Lab 2', $i->laboratory_level);
+        $this->assertEquals('A', $i->bsf_category);
+        $this->assertEquals('Dr. Director', $i->director);
+        $this->assertEquals('Dr. Chairman', $i->chairman);
+        $this->assertEquals('0281234567', $i->contact_number);
+        $this->assertEquals('inst@stluke.ph', $i->email);
+        $this->assertEquals(2019, $i->year_program_opened);
+    }
+
     public function test_training_institution_role_resolves_owned_institution(): void
     {
         Role::firstOrCreate(['name' => 'TrainingInstitution']);
@@ -80,5 +115,48 @@ class RegistrationTest extends TestCase
         Institution::create(['name' => 'Doc Hosp', 'registration_status' => 'approved', 'user_id' => $u->id]);
         $this->actingAs($u, 'sanctum');
         $this->getJson('/api/documents')->assertStatus(200);
+    }
+
+    public function test_owner_can_read_and_update_institution_profile(): void
+    {
+        Role::firstOrCreate(['name' => 'TrainingInstitution']);
+        $u = User::create([
+            'name' => 'Owner', 'username' => 'o5', 'email' => 'o5@x.ph',
+            'password' => bcrypt('password1'), 'status' => 'approved', 'email_verified_at' => now(),
+        ]);
+        $u->assignRole('TrainingInstitution');
+        Institution::create([
+            'name' => 'Read Inst', 'registration_status' => 'approved', 'user_id' => $u->id,
+            'address' => 'Old Addr', 'laboratory_level' => 'Old Lab', 'bsf_category' => 'B',
+            'director' => 'Old Dir', 'chairman' => 'Old Chair', 'contact_number' => '000',
+            'email' => 'old@x.ph', 'year_program_opened' => 2000,
+        ]);
+        $this->actingAs($u, 'sanctum');
+
+        $this->getJson('/api/institution-profile')
+            ->assertStatus(200)
+            ->assertJsonPath('name', 'Read Inst')
+            ->assertJsonPath('year_program_opened', 2000);
+
+        $this->putJson('/api/institution-profile', [
+            'name' => 'Read Inst',
+            'address' => 'New Addr',
+            'hospital_level' => 'Level 1',
+            'laboratory_level' => 'New Lab',
+            'bsf_category' => 'C',
+            'director' => 'New Dir',
+            'chairman' => 'New Chair',
+            'contact_number' => '09998887766',
+            'email' => 'new@x.ph',
+            'year_program_opened' => 2021,
+        ])->assertStatus(200)
+            ->assertJsonPath('address', 'New Addr')
+            ->assertJsonPath('laboratory_level', 'New Lab')
+            ->assertJsonPath('bsf_category', 'C')
+            ->assertJsonPath('director', 'New Dir')
+            ->assertJsonPath('chairman', 'New Chair')
+            ->assertJsonPath('contact_number', '09998887766')
+            ->assertJsonPath('email', 'new@x.ph')
+            ->assertJsonPath('year_program_opened', 2021);
     }
 }

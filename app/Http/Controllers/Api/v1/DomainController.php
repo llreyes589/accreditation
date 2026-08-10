@@ -42,10 +42,34 @@ class DomainController extends Controller
             $q->where('institution_id', $i->id);
         })->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'), 'expired_consultant_documents' => (clone $consultantExpiry)->whereDate('expires_at', '<', today())->count(), 'expiring_consultant_documents' => (clone $consultantExpiry)->whereBetween('expires_at', [today(), today()->addDays(30)])->count()]]);
     }
+    public function institutionProfile(Request $r)
+    {
+        return response()->json($this->institution($r));
+    }
+    public function updateInstitutionProfile(Request $r)
+    {
+        $i = $this->institution($r);
+        $d = $r->validate([
+            'name' => 'required|string|max:255',
+            'address' => 'nullable|string',
+            'hospital_level' => 'nullable|string|max:255',
+            'laboratory_level' => 'nullable|string|max:255',
+            'bsf_category' => 'nullable|string|max:255',
+            'director' => 'nullable|string|max:255',
+            'chairman' => 'nullable|string|max:255',
+            'contact_number' => 'nullable|string|max:50',
+            'email' => 'nullable|email|max:255',
+            'year_program_opened' => 'nullable|integer|min:1900|max:2100',
+        ]);
+        $i->update($d);
+        return response()->json($i);
+    }
+
     public function notifications(Request $r)
     {
         return $r->user()->notifications()->latest()->paginate();
     }
+
     public function readNotification(Request $r, $id)
     {
         $n = $r->user()->notifications()->findOrFail($id);

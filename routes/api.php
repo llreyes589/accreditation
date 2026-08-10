@@ -1,8 +1,12 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\v1\{AuthController, VerificationController, AdminController, DomainController};
+use App\Http\Controllers\Api\v1\{AuthController, VerificationController, AdminController, DomainController, PsgcController};
 use App\Models\Institution;
+
+Route::get('/psgc/regions', [PsgcController::class, 'regions']);
+Route::get('/psgc/regions/{regionCode}/provinces', [PsgcController::class, 'provinces']);
+Route::get('/psgc/provinces/{provinceCode}/cities', [PsgcController::class, 'cities']);
 
 Route::get('/institutions', function () {
     return Institution::where('registration_status', 'approved')->select('id', 'name', 'address', 'hospital_level')->get();

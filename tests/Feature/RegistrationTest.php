@@ -50,7 +50,10 @@ class RegistrationTest extends TestCase
                 'contact_number' => '0281234567',
                 'email' => 'inst@stluke.ph',
                 'year_program_opened' => 2019,
-            ],
+                'region' => 'NCR',
+                'province' => 'Metro Manila',
+                'city' => 'Quezon City',
+                ],
             'name' => 'Dr. Owner',
             'username' => 'owner9',
             'email' => 'owner9@stluke.ph',
@@ -68,6 +71,9 @@ class RegistrationTest extends TestCase
         $this->assertEquals('0281234567', $i->contact_number);
         $this->assertEquals('inst@stluke.ph', $i->email);
         $this->assertEquals(2019, $i->year_program_opened);
+        $this->assertEquals('NCR', $i->region);
+        $this->assertEquals('Metro Manila', $i->province);
+        $this->assertEquals('Quezon City', $i->city);
     }
 
     public function test_training_institution_role_resolves_owned_institution(): void
@@ -130,6 +136,7 @@ class RegistrationTest extends TestCase
             'address' => 'Old Addr', 'laboratory_level' => 'Old Lab', 'bsf_category' => 'B',
             'director' => 'Old Dir', 'chairman' => 'Old Chair', 'contact_number' => '000',
             'email' => 'old@x.ph', 'year_program_opened' => 2000,
+            'region' => 'Old Region', 'province' => 'Old Province', 'city' => 'Old City',
         ]);
         $this->actingAs($u, 'sanctum');
 
@@ -149,6 +156,9 @@ class RegistrationTest extends TestCase
             'contact_number' => '09998887766',
             'email' => 'new@x.ph',
             'year_program_opened' => 2021,
+            'region' => 'New Region',
+            'province' => 'New Province',
+            'city' => 'New City',
         ])->assertStatus(200)
             ->assertJsonPath('address', 'New Addr')
             ->assertJsonPath('laboratory_level', 'New Lab')
@@ -157,6 +167,9 @@ class RegistrationTest extends TestCase
             ->assertJsonPath('chairman', 'New Chair')
             ->assertJsonPath('contact_number', '09998887766')
             ->assertJsonPath('email', 'new@x.ph')
-            ->assertJsonPath('year_program_opened', 2021);
+            ->assertJsonPath('year_program_opened', 2021)
+            ->assertJsonPath('region', 'New Region')
+            ->assertJsonPath('province', 'New Province')
+            ->assertJsonPath('city', 'New City');
     }
 }

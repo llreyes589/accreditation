@@ -60,6 +60,9 @@ class DomainController extends Controller
             'contact_number' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
             'year_program_opened' => 'nullable|integer|min:1900|max:2100',
+            'region' => 'nullable|string|max:255',
+            'province' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:255',
         ]);
         $i->update($d);
         return response()->json($i);

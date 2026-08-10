@@ -25,6 +25,7 @@ class AdminController extends Controller
     {
         $user->update(['status' => 'approved', 'approved_at' => now(), 'approved_by' => $r->user()->id, 'rejection_reason' => null]);
         if ($user->trainingOfficer) $user->trainingOfficer->institution->update(['registration_status' => 'approved', 'approved_at' => now(), 'approved_by' => $r->user()->id, 'rejection_reason' => null]);
+        if ($user->institution) $user->institution->update(['registration_status' => 'approved', 'approved_at' => now(), 'approved_by' => $r->user()->id, 'rejection_reason' => null]);
         return response()->json($user);
     }
     public function rejectUser(Request $r, User $user)
@@ -32,6 +33,7 @@ class AdminController extends Controller
         $d = $r->validate(['reason' => 'required|string|max:255']);
         $user->update(['status' => 'rejected', 'rejection_reason' => $d['reason']]);
         if ($user->trainingOfficer) $user->trainingOfficer->institution->update(['registration_status' => 'rejected', 'rejection_reason' => $d['reason']]);
+        if ($user->institution) $user->institution->update(['registration_status' => 'rejected', 'rejection_reason' => $d['reason']]);
         return response()->json($user);
     }
     public function approveAccreditation(Request $r, Accreditation $a)

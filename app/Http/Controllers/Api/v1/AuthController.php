@@ -15,16 +15,15 @@ class AuthController extends Controller
         $d = $r->validate(['username' => 'required|string', 'password' => 'required|string']);
         $u = User::where('username', $d['username'])->first();
         if (!$u || !Hash::check($d['password'], $u->password)) throw ValidationException::withMessages(['username' => ['The provided credentials are incorrect.']]);
-        return response()->json(['user' => $u->load('roles', 'trainingOfficer.institution', 'resident.institution'), 'token' => $u->createToken('auth-token')->plainTextToken]);
+        return response()->json(['user' => $u->load('roles', 'institution', 'trainingOfficer.institution', 'resident.institution'), 'token' => $u->createToken('auth-token')->plainTextToken]);
     }
     public function registerInstitution(Request $r)
     {
         $d = $r->validate(['institution.name' => 'required|string|max:255', 'institution.address' => 'nullable|string', 'institution.hospital_level' => 'nullable|string|max:255', 'name' => 'required|string|max:255', 'username' => 'required|string|max:255|unique:users,username', 'email' => 'required|email|unique:users,email', 'password' => 'required|string|min:8|confirmed', 'phone' => 'nullable|string|max:50', 'telegram_handle' => 'nullable|string|max:255']);
         $u = DB::transaction(function () use ($d) {
-            $i = Institution::create(array_merge($d['institution'], ['registration_status' => 'pending']));
             $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => 'pending']);
-            $u->assignRole('TrainingOfficer');
-            TrainingOfficer::create(['user_id' => $u->id, 'institution_id' => $i->id, 'phone' => $d['phone'] ?? null, 'telegram_handle' => $d['telegram_handle'] ?? null]);
+            $u->assignRole('TrainingInstitution');
+            $i = Institution::create(array_merge($d['institution'], ['registration_status' => 'pending', 'user_id' => $u->id]));
             return $u;
         });
         $u->sendEmailVerificationNotification();

@@ -12,13 +12,14 @@ class DomainController extends Controller
     private function institution(Request $r)
     {
         $u = $r->user();
+        if ($u->hasRole('TrainingInstitution')) return $u->institution;
         if ($u->hasRole('TrainingOfficer')) return optional($u->trainingOfficer)->institution;
         if ($u->hasRole('Resident')) return optional($u->resident)->institution;
         abort(403, 'No institution context.');
     }
     public function me(Request $r)
     {
-        return $r->user()->load('roles', 'trainingOfficer.institution.documents', 'resident.institution');
+        return $r->user()->load('roles', 'institution', 'trainingOfficer.institution.documents', 'resident.institution');
     }
     public function pending(Request $r)
     {

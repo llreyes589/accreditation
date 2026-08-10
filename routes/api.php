@@ -18,10 +18,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pending-approval', [DomainController::class, 'pending']);
     Route::middleware(['verified', 'approved'])->group(function () {
         Route::get('/me', [DomainController::class, 'me']);
-        Route::get('/dashboard', [DomainController::class, 'dashboard'])->middleware('role:TrainingOfficer|Resident');
+        Route::get('/dashboard', [DomainController::class, 'dashboard'])->middleware('role:TrainingOfficer|TrainingInstitution|Resident');
         Route::get('/notifications', [DomainController::class, 'notifications']);
         Route::post('/notifications/{id}/read', [DomainController::class, 'readNotification']);
-        Route::middleware('role:TrainingOfficer')->group(function () {
+        Route::middleware('role:TrainingOfficer|TrainingInstitution')->group(function () {
             Route::get('/documents', [DomainController::class, 'documents']);
             Route::post('/documents', [DomainController::class, 'storeDocument']);
             Route::get('/consultants', [DomainController::class, 'consultants']);

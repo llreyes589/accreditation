@@ -59,6 +59,10 @@ class User extends Authenticatable implements Auditable, MustVerifyEmail
     {
         return $this->hasOne(TrainingOfficer::class);
     }
+    public function institution()
+    {
+        return $this->hasOne(Institution::class);
+    }
     public function resident()
     {
         return $this->hasOne(Resident::class);

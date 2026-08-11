@@ -36,17 +36,29 @@ class AdminController extends Controller
         if ($user->institution) $user->institution->update(['registration_status' => 'rejected', 'rejection_reason' => $d['reason']]);
         return response()->json($user);
     }
-    public function approveAccreditation(Request $r, Accreditation $a)
+    public function approveAccreditation(Request $r, Accreditation $accreditation)
     {
         $years = (int)Setting::getValue('accreditation_years', 1);
         $years = in_array($years, [1, 3], true) ? $years : 1;
-        $a->update(['status' => 'approved', 'approved_by' => $r->user()->id, 'valid_from' => today(), 'valid_until' => today()->addYears($years)]);
-        return response()->json($a);
+        $accreditation->update(['status' => 'approved', 'approved_by' => $r->user()->id, 'valid_from' => today(), 'valid_until' => today()->addYears($years)]);
+        return response()->json($accreditation->fresh());
     }
-    public function rejectAccreditation(Accreditation $a)
+    public function rejectAccreditation(Accreditation $accreditation)
     {
-        $a->update(['status' => 'rejected']);
-        return response()->json($a);
+        $accreditation->update(['status' => 'rejected']);
+        return response()->json($accreditation->fresh());
+    }
+    public function scheduleInspection(Request $r, Accreditation $accreditation)
+    {
+        // Inspection can only be scheduled after the application has been approved.
+        if ($accreditation->status !== 'approved') {
+            return response()->json([
+                'message' => 'Accreditation must be approved before an inspection can be scheduled.',
+            ], 422);
+        }
+        $d = $r->validate(['inspection_scheduled_at' => 'required|date|after:today']);
+        $accreditation->update(['inspection_scheduled_at' => $d['inspection_scheduled_at'], 'status' => 'inspection_scheduled']);
+        return response()->json($accreditation->fresh());
     }
     public function settings(Request $r)
     {

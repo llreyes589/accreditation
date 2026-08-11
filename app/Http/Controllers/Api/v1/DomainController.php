@@ -87,7 +87,7 @@ class DomainController extends Controller
     }
     public function storeDocument(Request $r)
     {
-        $d = $r->validate(['type' => 'required|in:license,permit,accreditation,other', 'file' => 'required|file|max:10240']);
+        $d = $r->validate(['type' => 'required|in:license,permit,accreditation,other,' . implode(',', Accreditation::REQUIRED_DOC_TYPES), 'file' => 'required|file|max:10240']);
         $i = $this->institution($r);
         $path = $r->file('file')->store('institution-documents/' . $i->id, 'public');
         $expiry = today()->addYear()->startOfYear();
@@ -155,8 +155,42 @@ class DomainController extends Controller
     }
     public function submitAccreditation(Request $r)
     {
+        $i = $this->institution($r);
         $d = $r->validate(['checklist_snapshot' => 'required|array']);
-        return response()->json(Accreditation::create(['institution_id' => $this->institution($r)->id, 'checklist_snapshot' => $d['checklist_snapshot'], 'status' => 'pending']), 201);
+
+        $missing = $i->documents()->whereIn('type', Accreditation::REQUIRED_DOC_TYPES)
+            ->pluck('type')->all();
+        $missing = array_values(array_diff(Accreditation::REQUIRED_DOC_TYPES, $missing));
+        if (!empty($missing)) {
+            return response()->json([
+                'message' => 'Missing required supporting documents.',
+                'missing_documents' => $missing,
+            ], 422);
+        }
+
+        $latest = $i->accreditations()->latest()->first();
+
+        // An institution that already holds a valid (approved) accreditation cannot
+        // submit a new or renewal application — unless that accreditation was rejected.
+        if ($latest && $latest->status === 'approved' && $latest->valid_until && $latest->valid_until->gt(now())) {
+            return response()->json([
+                'message' => 'Your institution already holds a valid accreditation. A new or renewal application cannot be submitted unless the current one was rejected.',
+            ], 422);
+        }
+
+        // Renewal when the previous cycle's validity has ended or is ending within 90 days.
+        $isRenewal = $latest
+            && $latest->valid_until
+            && $latest->valid_until->lte(now()->addDays(90));
+
+        $acc = Accreditation::create([
+            'institution_id' => $i->id,
+            'checklist_snapshot' => $d['checklist_snapshot'],
+            'status' => 'pending',
+            'submission_type' => $isRenewal ? 'renew' : 'new',
+            'submitted_at' => now(),
+        ]);
+        return response()->json($acc, 201);
     }
     public function trainingOfficers(Request $r)
     {

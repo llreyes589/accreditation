@@ -61,6 +61,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/users/{user}/reject', [AdminController::class, 'rejectUser']);
             Route::post('/accreditations/{accreditation}/approve', [AdminController::class, 'approveAccreditation']);
             Route::post('/accreditations/{accreditation}/reject', [AdminController::class, 'rejectAccreditation']);
+            Route::post('/accreditations/{accreditation}/schedule-inspection', [AdminController::class, 'scheduleInspection']);
             Route::put('/settings', [AdminController::class, 'settings']);
         });
     });

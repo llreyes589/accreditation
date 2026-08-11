@@ -63,6 +63,8 @@ class DomainController extends Controller
             'region' => 'nullable|string|max:255',
             'province' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
         ]);
         $i->update($d);
         return response()->json($i);

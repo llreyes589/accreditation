@@ -10,8 +10,8 @@ use OwenIt\Auditing\Auditable as AuditableTrait;
 class Institution extends Model implements Auditable
 {
     use SoftDeletes, AuditableTrait;
-    protected $fillable = ['name', 'address', 'hospital_level', 'laboratory_level', 'bsf_category', 'director', 'chairman', 'contact_number', 'email', 'year_program_opened', 'region', 'province', 'city', 'registration_status', 'approved_at', 'approved_by', 'rejection_reason', 'user_id'];
-    protected $casts = ['approved_at' => 'datetime', 'year_program_opened' => 'integer'];
+    protected $fillable = ['name', 'address', 'hospital_level', 'laboratory_level', 'bsf_category', 'director', 'chairman', 'contact_number', 'email', 'year_program_opened', 'region', 'province', 'city', 'latitude', 'longitude', 'registration_status', 'approved_at', 'approved_by', 'rejection_reason', 'user_id'];
+    protected $casts = ['approved_at' => 'datetime', 'year_program_opened' => 'integer', 'latitude' => 'float', 'longitude' => 'float'];
     public function user()
     {
         return $this->belongsTo(User::class);

@@ -53,6 +53,8 @@ class RegistrationTest extends TestCase
                 'region' => 'NCR',
                 'province' => 'Metro Manila',
                 'city' => 'Quezon City',
+                'latitude' => 14.676,
+                'longitude' => 121.043,
                 ],
             'name' => 'Dr. Owner',
             'username' => 'owner9',
@@ -74,6 +76,8 @@ class RegistrationTest extends TestCase
         $this->assertEquals('NCR', $i->region);
         $this->assertEquals('Metro Manila', $i->province);
         $this->assertEquals('Quezon City', $i->city);
+        $this->assertEquals(14.676, $i->latitude);
+        $this->assertEquals(121.043, $i->longitude);
     }
 
     public function test_training_institution_role_resolves_owned_institution(): void
@@ -159,6 +163,8 @@ class RegistrationTest extends TestCase
             'region' => 'New Region',
             'province' => 'New Province',
             'city' => 'New City',
+            'latitude' => 10.0,
+            'longitude' => 124.0,
         ])->assertStatus(200)
             ->assertJsonPath('address', 'New Addr')
             ->assertJsonPath('laboratory_level', 'New Lab')
@@ -170,6 +176,8 @@ class RegistrationTest extends TestCase
             ->assertJsonPath('year_program_opened', 2021)
             ->assertJsonPath('region', 'New Region')
             ->assertJsonPath('province', 'New Province')
-            ->assertJsonPath('city', 'New City');
+            ->assertJsonPath('city', 'New City')
+            ->assertJsonPath('latitude', 10)
+            ->assertJsonPath('longitude', 124);
     }
 }

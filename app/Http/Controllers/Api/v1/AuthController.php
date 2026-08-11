@@ -33,6 +33,8 @@ class AuthController extends Controller
             'institution.region' => 'nullable|string|max:255',
             'institution.province' => 'nullable|string|max:255',
             'institution.city' => 'nullable|string|max:255',
+            'institution.latitude' => 'nullable|numeric',
+            'institution.longitude' => 'nullable|numeric',
             'name' => 'required|string|max:255',
             'username' => 'required|string|max:255|unique:users,username',
             'email' => 'required|email|unique:users,email',

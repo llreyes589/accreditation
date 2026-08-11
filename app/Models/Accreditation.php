@@ -10,6 +10,12 @@ use OwenIt\Auditing\Auditable as AuditableTrait;
 class Accreditation extends Model implements Auditable
 {
     use SoftDeletes, AuditableTrait;
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_REQUIREMENTS_COMPLETED = 'requirements_completed';
+    public const STATUS_INSPECTION_SCHEDULED = 'inspection_scheduled';
+    public const STATUS_INSPECTED = 'inspected';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_REJECTED = 'rejected';
     protected $fillable = ['institution_id', 'checklist_snapshot', 'approved_by', 'valid_from', 'valid_until', 'status', 'submission_type', 'inspection_scheduled_at', 'submitted_at'];
     protected $casts = ['checklist_snapshot' => 'array', 'valid_from' => 'date', 'valid_until' => 'date', 'inspection_scheduled_at' => 'date', 'submitted_at' => 'date'];
     public function institution()
@@ -19,6 +25,14 @@ class Accreditation extends Model implements Auditable
     public function approver()
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+    public function inspections()
+    {
+        return $this->hasMany(AccreditationInspection::class);
+    }
+    public function latestInspection()
+    {
+        return $this->hasOne(AccreditationInspection::class)->latestOfMany();
     }
 
     /** Document types required to submit an accreditation application. */

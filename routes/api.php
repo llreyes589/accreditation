@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\v1\{AuthController, VerificationController, AdminController, DomainController, PlacesController};
+use App\Http\Controllers\Api\v1\{AuthController, VerificationController, AdminController, DomainController, PlacesController, AccreditorController};
 use App\Models\Institution;
 
 Route::get('/places/search', [PlacesController::class, 'search']);
@@ -61,8 +61,22 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/users/{user}/reject', [AdminController::class, 'rejectUser']);
             Route::post('/accreditations/{accreditation}/approve', [AdminController::class, 'approveAccreditation']);
             Route::post('/accreditations/{accreditation}/reject', [AdminController::class, 'rejectAccreditation']);
+            Route::post('/accreditations/{accreditation}/mark-requirements-completed', [AdminController::class, 'markRequirementsCompleted']);
             Route::post('/accreditations/{accreditation}/schedule-inspection', [AdminController::class, 'scheduleInspection']);
             Route::put('/settings', [AdminController::class, 'settings']);
+        });
+
+        // Accreditor: read the checklist + submit a captured inspection.
+        Route::prefix('accreditor')->middleware('role:Accreditor')->group(function () {
+            Route::get('/checklist-items', [AccreditorController::class, 'listChecklistItems']);
+            Route::get('/inspections/pending', [AccreditorController::class, 'pendingInspections']);
+            Route::post('/accreditations/{accreditation}/submit-inspection', [AccreditorController::class, 'submitInspection']);
+        });
+
+        // Staff (Admin OR Accreditor): final accreditation decision.
+        Route::prefix('staff')->middleware('role:Admin|Accreditor')->group(function () {
+            Route::post('/accreditations/{accreditation}/approve', [AdminController::class, 'approveAccreditation']);
+            Route::post('/accreditations/{accreditation}/reject', [AdminController::class, 'rejectAccreditation']);
         });
     });
 });

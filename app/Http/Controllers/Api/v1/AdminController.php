@@ -11,7 +11,12 @@ class AdminController extends Controller
 {
     public function pending()
     {
-        return response()->json(['users' => User::where('status', 'pending')->with('roles')->get(), 'institutions' => Institution::where('registration_status', 'pending')->get(), 'accreditations' => Accreditation::where('status', 'pending')->with('institution')->get()]);
+        // Accreditations still in progress (everything except the terminal approved/rejected states).
+        $accreditations = Accreditation::whereNotIn('status', [
+            Accreditation::STATUS_APPROVED,
+            Accreditation::STATUS_REJECTED,
+        ])->with('institution')->get();
+        return response()->json(['users' => User::where('status', 'pending')->with('roles')->get(), 'institutions' => Institution::where('registration_status', 'pending')->get(), 'accreditations' => $accreditations]);
     }
     public function createStaff(Request $r)
     {
@@ -50,14 +55,24 @@ class AdminController extends Controller
     }
     public function scheduleInspection(Request $r, Accreditation $accreditation)
     {
-        // Inspection can only be scheduled after the application has been approved.
-        if ($accreditation->status !== 'approved') {
+        // Inspection is scheduled after the admin marks requirements complete (and before approval).
+        if ($accreditation->status !== Accreditation::STATUS_REQUIREMENTS_COMPLETED) {
             return response()->json([
-                'message' => 'Accreditation must be approved before an inspection can be scheduled.',
+                'message' => 'Requirements must be marked complete before an inspection can be scheduled.',
             ], 422);
         }
         $d = $r->validate(['inspection_scheduled_at' => 'required|date|after:today']);
         $accreditation->update(['inspection_scheduled_at' => $d['inspection_scheduled_at'], 'status' => 'inspection_scheduled']);
+        return response()->json($accreditation->fresh());
+    }
+    public function markRequirementsCompleted(Request $r, Accreditation $accreditation)
+    {
+        if ($accreditation->status !== Accreditation::STATUS_PENDING) {
+            return response()->json([
+                'message' => 'Only a pending application can be marked requirements complete.',
+            ], 422);
+        }
+        $accreditation->update(['status' => Accreditation::STATUS_REQUIREMENTS_COMPLETED]);
         return response()->json($accreditation->fresh());
     }
     public function settings(Request $r)

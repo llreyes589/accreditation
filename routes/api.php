@@ -54,6 +54,17 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/rotations', [DomainController::class, 'storeRotation']);
             Route::post('/rotations/{rotation}/assignments', [DomainController::class, 'storeRotationAssignment']);
             Route::put('/rotation-assignments/{assignment}', [DomainController::class, 'updateRotationAssignment']);
+
+            /* Remaining flowchart stages: consultant review, evaluation, remediation, archive */
+            Route::get('/consultant-reviews', [DomainController::class, 'consultantReviews']);
+            Route::post('/consultant-reviews', [DomainController::class, 'storeConsultantReview']);
+            Route::get('/consultant-evaluations', [DomainController::class, 'consultantEvaluations']);
+            Route::post('/consultant-evaluations', [DomainController::class, 'storeConsultantEvaluation']);
+            Route::get('/remediation-plans', [DomainController::class, 'remediationPlans']);
+            Route::post('/remediation-plans', [DomainController::class, 'storeRemediationPlan']);
+            Route::put('/remediation-plans/{plan}', [DomainController::class, 'updateRemediationPlan']);
+            Route::get('/portfolio-archives', [DomainController::class, 'portfolioArchives']);
+            Route::post('/portfolio-archives', [DomainController::class, 'storePortfolioArchive']);
         });
         Route::prefix('admin')->middleware('role:Admin')->group(function () {
             Route::get('/pending', [AdminController::class, 'pending']);

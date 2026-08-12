@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
-use App\Models\{InstitutionDocument, Consultant, ConsultantDocument, Quiz, QuizResult, ResearchPaper, CaseLog, Accreditation, AccreditationInspection, ChecklistItem, Resident, ResidentTransfer, RotationBlock, RotationAssignment, Setting, TrainingOfficer, User};
+use App\Models\{InstitutionDocument, Consultant, ConsultantDocument, Quiz, QuizResult, ResearchPaper, CaseLog, Accreditation, AccreditationInspection, ChecklistItem, Resident, ResidentTransfer, RotationBlock, RotationAssignment, ConsultantReview, ConsultantEvaluation, RemediationPlan, PortfolioArchive, Setting, TrainingOfficer, User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Hash};
 
@@ -311,5 +311,130 @@ class DomainController extends Controller
         $d = $r->validate(['status' => 'required|in:assigned,completed', 'grade' => 'nullable|numeric|min:0']);
         $assignment->update($d);
         return response()->json($assignment);
+    }
+
+    /* -------------------- Consultant review (flowchart G/H/I) -------------------- */
+
+    public function consultantReviews(Request $r)
+    {
+        $i = $this->institution($r);
+        return ConsultantReview::whereHas('assignment.rotationBlock', function ($q) use ($i) {
+            $q->where('institution_id', $i->id);
+        })->with(['assignment.resident.user', 'consultant'])->orderByDesc('created_at')->get();
+    }
+
+    public function storeConsultantReview(Request $r)
+    {
+        $i = $this->institution($r);
+        $d = $r->validate([
+            'rotation_assignment_id' => 'required|exists:rotation_assignments,id',
+            'consultant_id' => 'nullable|exists:consultants,id',
+            'status' => 'required|in:validated,returned',
+            'comments' => 'nullable|string',
+        ]);
+        $assignment = RotationAssignment::findOrFail($d['rotation_assignment_id']);
+        abort_unless($assignment->rotationBlock->institution_id === $i->id, 403);
+        if (!empty($d['consultant_id'])) {
+            abort_unless(Consultant::where('id', $d['consultant_id'])->where('institution_id', $i->id)->exists(), 403);
+        }
+        // One review per assignment — upsert so re-review replaces the prior verdict.
+        $review = ConsultantReview::updateOrCreate(
+            ['rotation_assignment_id' => $assignment->id],
+            ['consultant_id' => $d['consultant_id'] ?? null, 'status' => $d['status'], 'comments' => $d['comments'] ?? null]
+        );
+        return response()->json($review, 201);
+    }
+
+    /* -------------------- Consultant evaluation (flowchart M) -------------------- */
+
+    public function consultantEvaluations(Request $r)
+    {
+        $i = $this->institution($r);
+        return ConsultantEvaluation::whereHas('resident', function ($q) use ($i) {
+            $q->where('institution_id', $i->id);
+        })->with(['resident.user', 'consultant'])->orderByDesc('created_at')->get();
+    }
+
+    public function storeConsultantEvaluation(Request $r)
+    {
+        $i = $this->institution($r);
+        $d = $r->validate([
+            'resident_id' => 'required|exists:residents,id',
+            'consultant_id' => 'nullable|exists:consultants,id',
+            'period' => 'required|string|max:100',
+            'ratings' => 'nullable|array',
+            'comments' => 'nullable|string',
+            'recommendation' => 'nullable|in:continue,remediate',
+            'evaluated_at' => 'nullable|date',
+        ]);
+        $resident = Resident::findOrFail($d['resident_id']);
+        abort_unless($resident->institution_id === $i->id, 403);
+        if (!empty($d['consultant_id'])) {
+            abort_unless(Consultant::where('id', $d['consultant_id'])->where('institution_id', $i->id)->exists(), 403);
+        }
+        return response()->json(ConsultantEvaluation::create($d), 201);
+    }
+
+    /* -------------------- Remediation plan (flowchart N/O) -------------------- */
+
+    public function remediationPlans(Request $r)
+    {
+        $i = $this->institution($r);
+        return RemediationPlan::whereHas('resident', function ($q) use ($i) {
+            $q->where('institution_id', $i->id);
+        })->with('resident.user')->orderByDesc('created_at')->get();
+    }
+
+    public function storeRemediationPlan(Request $r)
+    {
+        $i = $this->institution($r);
+        $d = $r->validate([
+            'resident_id' => 'required|exists:residents,id',
+            'reason' => 'required|string',
+            'plan' => 'required|string',
+            'target_date' => 'nullable|date',
+        ]);
+        $resident = Resident::findOrFail($d['resident_id']);
+        abort_unless($resident->institution_id === $i->id, 403);
+        return response()->json(RemediationPlan::create(array_merge($d, ['status' => 'open'])), 201);
+    }
+
+    public function updateRemediationPlan(Request $r, RemediationPlan $plan)
+    {
+        abort_unless($plan->resident->institution_id === $this->institution($r)->id, 403);
+        $d = $r->validate([
+            'status' => 'required|in:open,in_progress,completed,closed',
+            'plan' => 'nullable|string',
+            'target_date' => 'nullable|date',
+        ]);
+        $plan->update($d);
+        return response()->json($plan);
+    }
+
+    /* -------------------- Portfolio archive (flowchart U) -------------------- */
+
+    public function portfolioArchives(Request $r)
+    {
+        $i = $this->institution($r);
+        return PortfolioArchive::whereHas('resident', function ($q) use ($i) {
+            $q->where('institution_id', $i->id);
+        })->with('resident.user')->orderByDesc('created_at')->get();
+    }
+
+    public function storePortfolioArchive(Request $r)
+    {
+        $i = $this->institution($r);
+        $d = $r->validate([
+            'resident_id' => 'required|exists:residents,id',
+            'summary' => 'nullable|string',
+            'status' => 'nullable|in:archived,sealed',
+            'archived_at' => 'nullable|date',
+        ]);
+        $resident = Resident::findOrFail($d['resident_id']);
+        abort_unless($resident->institution_id === $i->id, 403);
+        return response()->json(PortfolioArchive::create(array_merge($d, [
+            'status' => $d['status'] ?? 'archived',
+            'archived_at' => $d['archived_at'] ?? now()->toDateString(),
+        ])), 201);
     }
 }

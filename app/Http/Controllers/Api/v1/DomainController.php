@@ -294,7 +294,7 @@ class DomainController extends Controller
         $d = $r->validate(['title' => 'required|string|max:255', 'category' => 'required|string|max:255', 'starts_at' => 'required|date', 'ends_at' => 'required|date|after_or_equal:starts_at', 'consultant_id' => 'nullable|exists:consultants,id', 'notes' => 'nullable|string']);
         $i = $this->institution($r);
         abort_unless(!isset($d['consultant_id']) || Consultant::where('id', $d['consultant_id'])->where('institution_id', $i->id)->exists(), 403);
-        abort_unless(\Carbon\Carbon::parse($d['starts_at'])->startOfMonth()->eq(\Carbon\Carbon::parse($d['starts_at'])) && \Carbon\Carbon::parse($d['ends_at'])->endOfMonth()->eq(\Carbon\Carbon::parse($d['ends_at'])), 422, 'Rotations must cover a calendar month.');
+        abort_unless(\Carbon\Carbon::parse($d['starts_at'])->startOfMonth()->toDateString() === \Carbon\Carbon::parse($d['starts_at'])->toDateString() && \Carbon\Carbon::parse($d['ends_at'])->endOfMonth()->toDateString() === \Carbon\Carbon::parse($d['ends_at'])->toDateString(), 422, 'Rotations must cover a calendar month.');
         return response()->json(RotationBlock::create($d + ['institution_id' => $i->id]), 201);
     }
     public function storeRotationAssignment(Request $r, RotationBlock $rotation)

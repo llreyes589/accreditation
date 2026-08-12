@@ -97,6 +97,35 @@ class AccreditationFlowTest extends TestCase
         $res->assertStatus(422);
     }
 
+    public function test_submit_blocked_while_in_progress(): void
+    {
+        $u = $this->ownerWithInstitution();
+        foreach (Accreditation::REQUIRED_DOC_TYPES as $type) {
+            $this->uploadDoc($u, $type);
+        }
+        // Any non-rejected status blocks a second submission (requirements_completed here).
+        $u->institution()->first()->accreditations()->create([
+            'checklist_snapshot' => [], 'status' => Accreditation::STATUS_REQUIREMENTS_COMPLETED,
+        ]);
+        $res = $this->actingAs($u, 'sanctum')
+            ->postJson('/api/accreditations', ['checklist_snapshot' => [['label' => 'x', 'done' => false]]]);
+        $res->assertStatus(422);
+    }
+
+    public function test_submit_allowed_only_after_rejection(): void
+    {
+        $u = $this->ownerWithInstitution();
+        foreach (Accreditation::REQUIRED_DOC_TYPES as $type) {
+            $this->uploadDoc($u, $type);
+        }
+        // A rejected accreditation lets the institution re-apply.
+        $u->institution()->first()->accreditations()->create([
+            'checklist_snapshot' => [], 'status' => Accreditation::STATUS_REJECTED,
+        ]);
+        $res = $this->actingAs($u, 'sanctum')
+            ->postJson('/api/accreditations', ['checklist_snapshot' => [['label' => 'x', 'done' => false]]]);
+        $res->assertStatus(201);
+    }
     public function test_admin_can_schedule_inspection(): void
     {
         Role::firstOrCreate(['name' => 'Admin']);

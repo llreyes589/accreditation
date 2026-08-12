@@ -39,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/case-logs', [DomainController::class, 'storeCase']);
             Route::get('/accreditations', [DomainController::class, 'accreditations']);
             Route::post('/accreditations', [DomainController::class, 'submitAccreditation']);
+            Route::get('/accreditations/{accreditation}', [DomainController::class, 'accreditationShow']);
             Route::get('/training-officers', [DomainController::class, 'trainingOfficers']);
             Route::post('/training-officers', [DomainController::class, 'storeTrainingOfficer']);
             Route::get('/residents', [DomainController::class, 'residents']);
@@ -63,6 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/accreditations/{accreditation}/reject', [AdminController::class, 'rejectAccreditation']);
             Route::post('/accreditations/{accreditation}/mark-requirements-completed', [AdminController::class, 'markRequirementsCompleted']);
             Route::post('/accreditations/{accreditation}/schedule-inspection', [AdminController::class, 'scheduleInspection']);
+            Route::get('/accreditations/{accreditation}', [AdminController::class, 'accreditationShow']);
             Route::put('/settings', [AdminController::class, 'settings']);
         });
 

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
-use App\Models\{InstitutionDocument, Consultant, ConsultantDocument, Quiz, QuizResult, ResearchPaper, CaseLog, Accreditation, Resident, ResidentTransfer, RotationBlock, RotationAssignment, Setting, TrainingOfficer, User};
+use App\Models\{InstitutionDocument, Consultant, ConsultantDocument, Quiz, QuizResult, ResearchPaper, CaseLog, Accreditation, AccreditationInspection, ChecklistItem, Resident, ResidentTransfer, RotationBlock, RotationAssignment, Setting, TrainingOfficer, User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Hash};
 
@@ -153,6 +153,17 @@ class DomainController extends Controller
     {
         return $this->institution($r)->accreditations()->latest()->get();
     }
+    /** Show one accreditation with its captured inspections + the institution's uploaded documents. */
+    public function accreditationShow(Request $r, Accreditation $accreditation)
+    {
+        $i = $this->institution($r);
+        abort_if($accreditation->institution_id !== $i->id, 403);
+        return response()->json([
+            'accreditation' => $accreditation->load('inspections'),
+            'documents' => $i->documents()->get(),
+            'checklist_items' => ChecklistItem::orderBy('sort_order')->get(),
+        ]);
+    }
     public function submitAccreditation(Request $r)
     {
         $i = $this->institution($r);
@@ -170,11 +181,14 @@ class DomainController extends Controller
 
         $latest = $i->accreditations()->latest()->first();
 
-        // An institution that already holds a valid (approved) accreditation cannot
-        // submit a new or renewal application — unless that accreditation was rejected.
-        if ($latest && $latest->status === 'approved' && $latest->valid_until && $latest->valid_until->gt(now())) {
+        // An institution may only submit a NEW application when it has no active accreditation
+        // in progress. A submission is blocked unless the most recent accreditation was rejected
+        // (the institution is invited to re-apply). "Active/in-progress" covers every non-rejected
+        // status: pending review, requirements completed, inspection scheduled, inspected, or a
+        // still-valid approved cycle.
+        if ($latest && $latest->status !== Accreditation::STATUS_REJECTED) {
             return response()->json([
-                'message' => 'Your institution already holds a valid accreditation. A new or renewal application cannot be submitted unless the current one was rejected.',
+                'message' => 'Your institution already has an accreditation application in progress. A new or renewal application cannot be submitted until the current one is rejected.',
             ], 422);
         }
 

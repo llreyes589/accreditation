@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
-use App\Models\{User, Institution, Accreditation, Setting};
+use App\Models\{User, Institution, Accreditation, Setting, ChecklistItem};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -74,6 +74,15 @@ class AdminController extends Controller
         }
         $accreditation->update(['status' => Accreditation::STATUS_REQUIREMENTS_COMPLETED]);
         return response()->json($accreditation->fresh());
+    }
+    /** Read-only detail for an admin: uploaded documents + the accreditor's captured checklist. */
+    public function accreditationShow(Request $r, Accreditation $accreditation)
+    {
+        return response()->json([
+            'accreditation' => $accreditation->load(['institution', 'inspections']),
+            'documents' => $accreditation->institution->documents()->get(),
+            'checklist_items' => ChecklistItem::orderBy('sort_order')->get(),
+        ]);
     }
     public function settings(Request $r)
     {

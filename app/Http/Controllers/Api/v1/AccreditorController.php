@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Accreditation, AccreditationInspection, ChecklistItem};
+use App\Models\{Accreditation, AccreditationInspection, ChecklistItem, Finding};
 use Illuminate\Http\Request;
 
 class AccreditorController extends Controller
@@ -68,6 +68,28 @@ class AccreditorController extends Controller
         );
 
         $accreditation->update(['status' => Accreditation::STATUS_INSPECTED]);
+
+        // Auto-raise a finding for every non-compliant checklist item (preserves context,
+        // avoids duplicates: skip items that already have a finding on this inspection).
+        $accreditorId = $r->user()->id;
+        foreach ($d['answers'] as $itemId => $answer) {
+            if (empty($answer['compliant'])) {
+                $item = ChecklistItem::find($itemId);
+                $exists = Finding::where('accreditation_inspection_id', $inspection->id)
+                    ->where('checklist_item_id', $itemId)->exists();
+                if ($item && !$exists) {
+                    Finding::create([
+                        'accreditation_inspection_id' => $inspection->id,
+                        'checklist_item_id' => $itemId,
+                        'title' => 'Non-compliant: ' . ($item->criterion ?: "Item #$itemId"),
+                        'description' => $answer['notes'] ?? 'Flagged as non-compliant during inspection.',
+                        'severity' => $item->is_major ? 'major' : 'minor',
+                        'status' => Finding::STATUS_OPEN,
+                        'raised_by' => $accreditorId,
+                    ]);
+                }
+            }
+        }
 
         return response()->json([
             'accreditation' => $accreditation->fresh(),

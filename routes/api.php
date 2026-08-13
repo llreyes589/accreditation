@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\v1\{AuthController, VerificationController, AdminController, DomainController, PlacesController, AccreditorController};
+use App\Http\Controllers\Api\v1\{AuthController, VerificationController, AdminController, DomainController, PlacesController, AccreditorController, FindingsController};
 use App\Models\Institution;
 
 Route::get('/places/search', [PlacesController::class, 'search']);
@@ -65,6 +65,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/remediation-plans/{plan}', [DomainController::class, 'updateRemediationPlan']);
             Route::get('/portfolio-archives', [DomainController::class, 'portfolioArchives']);
             Route::post('/portfolio-archives', [DomainController::class, 'storePortfolioArchive']);
+
+            /* Findings & Corrective Actions — institution (Training Officer) side */
+            Route::get('/corrective-actions', [FindingsController::class, 'actions']);
+            Route::post('/corrective-actions', [FindingsController::class, 'storeAction']);
+            Route::post('/corrective-actions/{action}/evidence', [FindingsController::class, 'uploadEvidence']);
+            Route::post('/corrective-actions/{action}/resolve', [FindingsController::class, 'resolve']);
         });
         Route::prefix('admin')->middleware('role:Admin')->group(function () {
             Route::get('/pending', [AdminController::class, 'pending']);
@@ -90,6 +96,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('staff')->middleware('role:Admin|Accreditor')->group(function () {
             Route::post('/accreditations/{accreditation}/approve', [AdminController::class, 'approveAccreditation']);
             Route::post('/accreditations/{accreditation}/reject', [AdminController::class, 'rejectAccreditation']);
+
+            /* Findings & Corrective Actions — reviewer (Admin/Accreditor) writes */
+            Route::post('/findings', [FindingsController::class, 'store']);
+            Route::post('/corrective-actions/{action}/verify', [FindingsController::class, 'verify']);
         });
+
+        // Findings read — reviewer AND institution (controller scopes by institution for Training Officer)
+        Route::get('/staff/findings', [FindingsController::class, 'index'])
+            ->middleware('role:Admin|Accreditor|TrainingOfficer|TrainingInstitution');
+        Route::get('/staff/inspections', [FindingsController::class, 'inspections'])
+            ->middleware('role:Admin|Accreditor');
     });
 });

@@ -3,21 +3,23 @@
 namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
-use App\Models\{User, Institution, Accreditation, Setting, ChecklistItem};
+use App\Models\{User, Institution, Accreditation, Setting, ChecklistItem, AccreditationDecision};
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class AdminController extends Controller
 {
-    public function pending()
-    {
-        // Accreditations still in progress (everything except the terminal approved/rejected states).
-        $accreditations = Accreditation::whereNotIn('status', [
-            Accreditation::STATUS_APPROVED,
-            Accreditation::STATUS_REJECTED,
-        ])->with('institution')->get();
-        return response()->json(['users' => User::where('status', 'pending')->with('roles')->get(), 'institutions' => Institution::where('registration_status', 'pending')->get(), 'accreditations' => $accreditations]);
-    }
+public function pending()
+{
+    // Accreditations still in progress (everything except the terminal approved/rejected/probationary states).
+    $accreditations = Accreditation::whereNotIn('status', [
+        Accreditation::STATUS_APPROVED,
+        Accreditation::STATUS_PROBATIONARY,
+        Accreditation::STATUS_REJECTED,
+    ])->with(['institution', 'decisions'])->get();
+    return response()->json(['users' => User::where('status', 'pending')->with('roles')->get(), 'institutions' => Institution::where('registration_status', 'pending')->get(), 'accreditations' => $accreditations]);
+}
     public function createStaff(Request $r)
     {
         $d = $r->validate(['name' => 'required|string|max:255', 'username' => 'required|string|max:255|unique:users,username', 'email' => 'required|email|unique:users,email', 'password' => 'required|string|min:8', 'role' => 'required|in:Admin,Accreditor']);
@@ -41,18 +43,53 @@ class AdminController extends Controller
         if ($user->institution) $user->institution->update(['registration_status' => 'rejected', 'rejection_reason' => $d['reason']]);
         return response()->json($user);
     }
-    public function approveAccreditation(Request $r, Accreditation $accreditation)
+    public function recordDecision(Request $r, Accreditation $accreditation)
     {
-        $years = (int)Setting::getValue('accreditation_years', 1);
-        $years = in_array($years, [1, 3], true) ? $years : 1;
-        $accreditation->update(['status' => 'approved', 'approved_by' => $r->user()->id, 'valid_from' => today(), 'valid_until' => today()->addYears($years)]);
-        return response()->json($accreditation->fresh());
+        $d = $r->validate([
+            'outcome' => 'required|in:approved,probationary,rejected',
+            'notes' => 'nullable|string|max:2000',
+            'valid_until' => 'nullable|date|after:today',
+        ]);
+
+        return DB::transaction(function () use ($r, $accreditation, $d) {
+            $outcome = $d['outcome'];
+
+            if ($outcome === AccreditationDecision::OUTCOME_REJECTED) {
+                $accreditation->update(['status' => Accreditation::STATUS_REJECTED]);
+            } else {
+                $years = (int) Setting::getValue('accreditation_years', 1);
+                $years = in_array($years, [1, 3], true) ? $years : 1;
+                $validUntil = $d['valid_until'] ?? today()->addYears($years);
+                $accreditation->update([
+                    'status' => $outcome === AccreditationDecision::OUTCOME_PROBATIONARY
+                        ? Accreditation::STATUS_PROBATIONARY
+                        : Accreditation::STATUS_APPROVED,
+                    'approved_by' => $r->user()->id,
+                    'valid_from' => today(),
+                    'valid_until' => $validUntil,
+                ]);
+            }
+
+            $accreditation->decisions()->create([
+                'outcome' => $outcome,
+                'notes' => $d['notes'] ?? null,
+                'valid_from' => $outcome === AccreditationDecision::OUTCOME_REJECTED ? null : today(),
+                'valid_until' => $outcome === AccreditationDecision::OUTCOME_REJECTED ? null : ($d['valid_until'] ?? null),
+                'decided_by' => $r->user()->id,
+            ]);
+
+            return response()->json($accreditation->fresh()->load('decisions'));
+        });
     }
-    public function rejectAccreditation(Accreditation $accreditation)
+
+    public function listDecisions(Request $r, Accreditation $accreditation)
     {
-        $accreditation->update(['status' => 'rejected']);
-        return response()->json($accreditation->fresh());
+        return response()->json([
+            'accreditation_id' => $accreditation->id,
+            'decisions' => $accreditation->decisions()->with('decider')->get(),
+        ]);
     }
+
     public function scheduleInspection(Request $r, Accreditation $accreditation)
     {
         // Inspection is scheduled after the admin marks requirements complete (and before approval).

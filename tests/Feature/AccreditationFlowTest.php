@@ -239,7 +239,7 @@ class AccreditationFlowTest extends TestCase
 
         // Accreditor (staff) approves the inspected accreditation
         $res = $this->actingAs($accreditor, 'sanctum')
-            ->postJson("/api/staff/accreditations/{$acc->id}/approve");
+            ->postJson("/api/staff/accreditations/{$acc->id}/decision", ['outcome' => 'approved']);
         $res->assertStatus(200)->assertJsonPath('status', 'approved');
         $this->assertNotNull($res->json('valid_until'));
     }

@@ -15,6 +15,7 @@ class Accreditation extends Model implements Auditable
     public const STATUS_INSPECTION_SCHEDULED = 'inspection_scheduled';
     public const STATUS_INSPECTED = 'inspected';
     public const STATUS_APPROVED = 'approved';
+    public const STATUS_PROBATIONARY = 'probationary';
     public const STATUS_REJECTED = 'rejected';
     protected $fillable = ['institution_id', 'checklist_snapshot', 'approved_by', 'valid_from', 'valid_until', 'status', 'submission_type', 'inspection_scheduled_at', 'submitted_at'];
     protected $casts = ['checklist_snapshot' => 'array', 'valid_from' => 'date', 'valid_until' => 'date', 'inspection_scheduled_at' => 'date', 'submitted_at' => 'date'];
@@ -33,6 +34,12 @@ class Accreditation extends Model implements Auditable
     public function latestInspection()
     {
         return $this->hasOne(AccreditationInspection::class)->latestOfMany();
+    }
+
+    /** Append-only ledger of every draft and final decision. */
+    public function decisions()
+    {
+        return $this->hasMany(AccreditationDecision::class)->orderBy('decided_at');
     }
 
     /** Document types required to submit an accreditation application. */

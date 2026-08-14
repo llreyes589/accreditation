@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Accreditation, AccreditationInspection, ChecklistItem, Finding};
+use App\Models\{Accreditation, AccreditationInspection, ChecklistItem, Finding, AccreditationDecision};
 use Illuminate\Http\Request;
 
 class AccreditorController extends Controller
@@ -95,5 +95,32 @@ class AccreditorController extends Controller
             'accreditation' => $accreditation->fresh(),
             'inspection' => $inspection->fresh(),
         ]);
+    }
+
+    /**
+     * Accreditor records a draft recommendation before the final decision.
+     * Does NOT change accreditation status (stays inspected until a final decision).
+     * Append-only ledger row (outcome = draft).
+     */
+    public function decisionDraft(Request $r, Accreditation $accreditation)
+    {
+        if ($accreditation->status !== Accreditation::STATUS_INSPECTED) {
+            return response()->json([
+                'message' => 'A draft recommendation can only be recorded after inspection.',
+            ], 422);
+        }
+
+        $d = $r->validate([
+            'outcome' => 'required|in:draft',
+            'notes' => 'nullable|string|max:2000',
+        ]);
+
+        $decision = $accreditation->decisions()->create([
+            'outcome' => AccreditationDecision::OUTCOME_DRAFT,
+            'notes' => $d['notes'] ?? null,
+            'decided_by' => $r->user()->id,
+        ]);
+
+        return response()->json($decision, 201);
     }
 }

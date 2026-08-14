@@ -77,8 +77,6 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/staff', [AdminController::class, 'createStaff']);
             Route::post('/users/{user}/approve', [AdminController::class, 'approveUser']);
             Route::post('/users/{user}/reject', [AdminController::class, 'rejectUser']);
-            Route::post('/accreditations/{accreditation}/approve', [AdminController::class, 'approveAccreditation']);
-            Route::post('/accreditations/{accreditation}/reject', [AdminController::class, 'rejectAccreditation']);
             Route::post('/accreditations/{accreditation}/mark-requirements-completed', [AdminController::class, 'markRequirementsCompleted']);
             Route::post('/accreditations/{accreditation}/schedule-inspection', [AdminController::class, 'scheduleInspection']);
             Route::get('/accreditations/{accreditation}', [AdminController::class, 'accreditationShow']);
@@ -90,12 +88,13 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/checklist-items', [AccreditorController::class, 'listChecklistItems']);
             Route::get('/inspections/pending', [AccreditorController::class, 'pendingInspections']);
             Route::post('/accreditations/{accreditation}/submit-inspection', [AccreditorController::class, 'submitInspection']);
+            Route::post('/accreditations/{accreditation}/decision-draft', [AccreditorController::class, 'decisionDraft']);
         });
 
         // Staff (Admin OR Accreditor): final accreditation decision.
         Route::prefix('staff')->middleware('role:Admin|Accreditor')->group(function () {
-            Route::post('/accreditations/{accreditation}/approve', [AdminController::class, 'approveAccreditation']);
-            Route::post('/accreditations/{accreditation}/reject', [AdminController::class, 'rejectAccreditation']);
+            Route::post('/accreditations/{accreditation}/decision', [AdminController::class, 'recordDecision']);
+            Route::get('/accreditations/{accreditation}/decisions', [AdminController::class, 'listDecisions']);
 
             /* Findings & Corrective Actions — reviewer (Admin/Accreditor) writes */
             Route::post('/findings', [FindingsController::class, 'store']);

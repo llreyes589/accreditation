@@ -87,10 +87,11 @@ class AccreditationFlowTest extends TestCase
         foreach (Accreditation::REQUIRED_DOC_TYPES as $type) {
             $this->uploadDoc($u, $type);
         }
-        // An approved, still-valid accreditation blocks a new/renew application.
+        // An approved, still-valid accreditation whose validity is well in the future blocks a
+        // new/renew application (it is not yet due for renewal).
         $u->institution()->first()->accreditations()->create([
             'checklist_snapshot' => [], 'status' => 'approved',
-            'valid_from' => now()->subYear(), 'valid_until' => now()->addDays(30),
+            'valid_from' => now(), 'valid_until' => now()->addYear(),
         ]);
         $res = $this->actingAs($u, 'sanctum')
             ->postJson('/api/accreditations', ['checklist_snapshot' => [['label' => 'x', 'done' => false]]]);
@@ -125,6 +126,54 @@ class AccreditationFlowTest extends TestCase
         $res = $this->actingAs($u, 'sanctum')
             ->postJson('/api/accreditations', ['checklist_snapshot' => [['label' => 'x', 'done' => false]]]);
         $res->assertStatus(201);
+    }
+
+    public function test_submit_rejected_when_approved_cycle_not_yet_due(): void
+    {
+        $u = $this->ownerWithInstitution();
+        foreach (Accreditation::REQUIRED_DOC_TYPES as $type) {
+            $this->uploadDoc($u, $type);
+        }
+        // An approved cycle whose validity is well into the future blocks early renewal.
+        $u->institution()->first()->accreditations()->create([
+            'checklist_snapshot' => [], 'status' => 'approved',
+            'valid_from' => now(), 'valid_until' => now()->addYear(),
+        ]);
+        $res = $this->actingAs($u, 'sanctum')
+            ->postJson('/api/accreditations', ['checklist_snapshot' => [['label' => 'x', 'done' => false]]]);
+        $res->assertStatus(422);
+    }
+
+    public function test_submit_allowed_when_approved_cycle_due_for_renewal(): void
+    {
+        $u = $this->ownerWithInstitution();
+        foreach (Accreditation::REQUIRED_DOC_TYPES as $type) {
+            $this->uploadDoc($u, $type);
+        }
+        // An approved cycle within the 90-day renewal window can be renewed.
+        $u->institution()->first()->accreditations()->create([
+            'checklist_snapshot' => [], 'status' => 'approved',
+            'valid_from' => now()->subYear(), 'valid_until' => now()->addDays(30),
+        ]);
+        $res = $this->actingAs($u, 'sanctum')
+            ->postJson('/api/accreditations', ['checklist_snapshot' => [['label' => 'x', 'done' => false]]]);
+        $res->assertStatus(201)->assertJsonPath('submission_type', 'renew');
+    }
+
+    public function test_submit_allowed_when_approved_cycle_expired(): void
+    {
+        $u = $this->ownerWithInstitution();
+        foreach (Accreditation::REQUIRED_DOC_TYPES as $type) {
+            $this->uploadDoc($u, $type);
+        }
+        // An approved cycle whose validity has already ended can be renewed.
+        $u->institution()->first()->accreditations()->create([
+            'checklist_snapshot' => [], 'status' => 'approved',
+            'valid_from' => now()->subYears(2), 'valid_until' => now()->subDays(10),
+        ]);
+        $res = $this->actingAs($u, 'sanctum')
+            ->postJson('/api/accreditations', ['checklist_snapshot' => [['label' => 'x', 'done' => false]]]);
+        $res->assertStatus(201)->assertJsonPath('submission_type', 'renew');
     }
     public function test_admin_can_schedule_inspection(): void
     {

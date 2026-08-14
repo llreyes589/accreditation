@@ -211,15 +211,29 @@ class DomainController extends Controller
 
         $latest = $i->accreditations()->latest()->first();
 
-        // An institution may only submit a NEW application when it has no active accreditation
-        // in progress. A submission is blocked unless the most recent accreditation was rejected
-        // (the institution is invited to re-apply). "Active/in-progress" covers every non-rejected
-        // status: pending review, requirements completed, inspection scheduled, inspected, or a
-        // still-valid approved cycle.
-        if ($latest && $latest->status !== Accreditation::STATUS_REJECTED) {
-            return response()->json([
-                'message' => 'Your institution already has an accreditation application in progress. A new or renewal application cannot be submitted until the current one is rejected.',
-            ], 422);
+        // Submission is allowed when there is no prior accreditation (first application),
+        // the latest was REJECTED (the institution is invited to re-apply), or the latest is an
+        // approved/probationary cycle that is DUE FOR RENEWAL (valid_until is past or within the
+        // 90-day renewal window). All other states block: a still-in-progress application
+        // (pending/requirements_completed/inspection_scheduled/inspected) must resolve first, and a
+        // valid cycle that is not yet due cannot be renewed early.
+        $inProgress = $latest && in_array($latest->status, [
+            Accreditation::STATUS_PENDING,
+            Accreditation::STATUS_REQUIREMENTS_COMPLETED,
+            Accreditation::STATUS_INSPECTION_SCHEDULED,
+            Accreditation::STATUS_INSPECTED,
+        ]);
+        $rejected = $latest && $latest->status === Accreditation::STATUS_REJECTED;
+        $dueForRenewal = $latest
+            && in_array($latest->status, [Accreditation::STATUS_APPROVED, Accreditation::STATUS_PROBATIONARY])
+            && $latest->valid_until
+            && $latest->valid_until->lte(now()->addDays(90));
+
+        if ($latest && !$rejected && !$dueForRenewal) {
+            $message = $inProgress
+                ? 'Your institution already has an accreditation application in progress. A new or renewal application cannot be submitted until the current one is resolved.'
+                : 'Your current accreditation is still valid and not yet due for renewal. A renewal application can be submitted once the validity period ends or enters the 90-day renewal window.';
+            return response()->json(['message' => $message], 422);
         }
 
         // Renewal when the previous cycle's validity has ended or is ending within 90 days.

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\{User, Institution, Accreditation, Setting, ChecklistItem, AccreditationDecision};
+use App\Notifications\{DecisionIssuedNotification, InspectionScheduledReminder};
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -78,6 +80,14 @@ public function pending()
                 'decided_by' => $r->user()->id,
             ]);
 
+            // Dispatch after commit: notify the institution + reviewers of the decision.
+            DB::afterCommit(function () use ($accreditation, $outcome) {
+                $svc = new NotificationService();
+                foreach (NotificationService::institutionRecipients($accreditation->institution) as $recipient) {
+                    $svc->notify($recipient, new DecisionIssuedNotification($accreditation, $outcome), 'status_change', ['database', 'email']);
+                }
+            });
+
             return response()->json($accreditation->fresh()->load('decisions'));
         });
     }
@@ -100,6 +110,14 @@ public function pending()
         }
         $d = $r->validate(['inspection_scheduled_at' => 'required|date|after:today']);
         $accreditation->update(['inspection_scheduled_at' => $d['inspection_scheduled_at'], 'status' => 'inspection_scheduled']);
+        $inspection = $accreditation->latestInspection;
+        DB::afterCommit(function () use ($accreditation, $inspection) {
+            if (!$inspection) return;
+            $svc = new NotificationService();
+            foreach (NotificationService::institutionRecipients($accreditation->institution) as $recipient) {
+                $svc->notify($recipient, new InspectionScheduledReminder($inspection), 'deadline_reminder', ['database', 'email']);
+            }
+        });
         return response()->json($accreditation->fresh());
     }
     public function markRequirementsCompleted(Request $r, Accreditation $accreditation)

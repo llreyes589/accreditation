@@ -79,7 +79,37 @@ class DomainController extends Controller
     {
         $n = $r->user()->notifications()->findOrFail($id);
         $n->markAsRead();
+        \App\Services\NotificationService::recordRead($r->user()->id);
         return response()->json($n);
+    }
+
+    public function getPreferences(Request $r)
+    {
+        return response()->json($r->user()->notificationPreferences()->get());
+    }
+
+    public function updatePreferences(Request $r)
+    {
+        $d = $r->validate([
+            'preferences' => 'required|array',
+            'preferences.*.category' => 'required|string|max:50',
+            'preferences.*.channel' => 'required|in:database,email,in_app',
+            'preferences.*.enabled' => 'boolean',
+            'preferences.*.quiet_hours_start' => 'nullable|string|max:8',
+            'preferences.*.quiet_hours_end' => 'nullable|string|max:8',
+        ]);
+        $saved = [];
+        foreach ($d['preferences'] as $p) {
+            $saved[] = \App\Models\NotificationPreference::updateOrCreate(
+                ['user_id' => $r->user()->id, 'category' => $p['category'], 'channel' => $p['channel']],
+                [
+                    'enabled' => $p['enabled'] ?? true,
+                    'quiet_hours_start' => $p['quiet_hours_start'] ?? null,
+                    'quiet_hours_end' => $p['quiet_hours_end'] ?? null,
+                ]
+            );
+        }
+        return response()->json($saved);
     }
     public function documents(Request $r)
     {

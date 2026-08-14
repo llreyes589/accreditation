@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Accreditation, AccreditationInspection, ChecklistItem, Finding, AccreditationDecision};
+use App\Models\{Accreditation, AccreditationInspection, ChecklistItem, Finding, AccreditationDecision, TrainingOfficer, User};
+use App\Notifications\FindingCreatedNotification;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AccreditorController extends Controller
 {
@@ -78,7 +81,7 @@ class AccreditorController extends Controller
                 $exists = Finding::where('accreditation_inspection_id', $inspection->id)
                     ->where('checklist_item_id', $itemId)->exists();
                 if ($item && !$exists) {
-                    Finding::create([
+                    $finding = Finding::create([
                         'accreditation_inspection_id' => $inspection->id,
                         'checklist_item_id' => $itemId,
                         'title' => 'Non-compliant: ' . ($item->criterion ?: "Item #$itemId"),
@@ -87,6 +90,13 @@ class AccreditorController extends Controller
                         'status' => Finding::STATUS_OPEN,
                         'raised_by' => $accreditorId,
                     ]);
+                    // Dispatch after commit: notify the institution + reviewers.
+                    DB::afterCommit(function () use ($finding, $accreditation) {
+                        $svc = new NotificationService();
+                        foreach (NotificationService::institutionRecipients($accreditation->institution) as $recipient) {
+                            $svc->notify($recipient, new FindingCreatedNotification($finding), 'status_change', ['database', 'email']);
+                        }
+                    });
                 }
             }
         }

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\{AccreditationInspection, ChecklistItem, CorrectiveAction, CorrectiveActionEvidence, CorrectiveActionStatusLog, Finding, Institution};
+use App\Notifications\StatusChangeNotification;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Storage};
 
@@ -152,6 +154,14 @@ class FindingsController extends Controller
             $this->logStatus($action, CorrectiveAction::STATUS_RESOLVED, null, $r->user()->id);
         });
 
+        DB::afterCommit(function () use ($action) {
+            $acc = $action->finding->inspection->accreditation;
+            $svc = new NotificationService();
+            foreach (NotificationService::institutionRecipients($acc->institution) as $recipient) {
+                $svc->notify($recipient, new StatusChangeNotification('corrective_action_resolved', $acc, "Action #{$action->id} resolved"), 'status_change', ['database', 'email']);
+            }
+        });
+
         return response()->json($action);
     }
 
@@ -182,6 +192,14 @@ class FindingsController extends Controller
         DB::transaction(function () use ($action, $newStatus, $d, $r) {
             $action->update(['status' => $newStatus]);
             $this->logStatus($action, $newStatus, $d['comment'] ?? null, $r->user()->id);
+        });
+
+        DB::afterCommit(function () use ($action, $newStatus) {
+            $acc = $action->finding->inspection->accreditation;
+            $svc = new NotificationService();
+            foreach (NotificationService::institutionRecipients($acc->institution) as $recipient) {
+                $svc->notify($recipient, new StatusChangeNotification("corrective_action_{$newStatus}", $acc, "Action #{$action->id} {$newStatus}"), 'status_change', ['database', 'email']);
+            }
         });
 
         return response()->json($action);

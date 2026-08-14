@@ -67,6 +67,32 @@ class User extends Authenticatable implements Auditable, MustVerifyEmail
     {
         return $this->hasOne(Resident::class);
     }
+
+    public function notificationPreferences()
+    {
+        return $this->hasMany(NotificationPreference::class);
+    }
+
+    /** Has the user opted out of this category on this channel? */
+    public function hasOptedOut(string $category, string $channel): bool
+    {
+        $pref = $this->notificationPreferences()
+            ->where('category', $category)
+            ->where('channel', $channel)
+            ->first();
+        return $pref ? !$pref->enabled : false;
+    }
+
+    /** Is the user currently inside their quiet-hours window for this category? */
+    public function inQuietHours(string $category, ?\DateTimeInterface $now = null): bool
+    {
+        $pref = $this->notificationPreferences()
+            ->where('category', $category)
+            ->whereNotNull('quiet_hours_start')
+            ->first();
+        return $pref ? $pref->inQuietHours($now) : false;
+    }
+
     public function hasRole($role)
     {
         return $this->roles()->where('name', $role)->exists();

@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\v1\{AuthController, VerificationController, AdminController, DomainController, PlacesController, AccreditorController, FindingsController};
+use App\Http\Controllers\Api\v1\{AuthController, VerificationController, AdminController, DomainController, PlacesController, AccreditorController, FindingsController, ReportsController};
 use App\Models\Institution;
 
 Route::get('/places/search', [PlacesController::class, 'search']);
@@ -23,6 +23,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/dashboard', [DomainController::class, 'dashboard'])->middleware('role:TrainingOfficer|TrainingInstitution|Resident');
         Route::get('/notifications', [DomainController::class, 'notifications']);
         Route::post('/notifications/{id}/read', [DomainController::class, 'readNotification']);
+        Route::get('/notification-preferences', [DomainController::class, 'getPreferences']);
+        Route::put('/notification-preferences', [DomainController::class, 'updatePreferences']);
         Route::middleware('role:TrainingOfficer|TrainingInstitution')->group(function () {
             Route::get('/institution-profile', [DomainController::class, 'institutionProfile']);
             Route::put('/institution-profile', [DomainController::class, 'updateInstitutionProfile']);
@@ -106,5 +108,13 @@ Route::middleware('auth:sanctum')->group(function () {
             ->middleware('role:Admin|Accreditor|TrainingOfficer|TrainingInstitution');
         Route::get('/staff/inspections', [FindingsController::class, 'inspections'])
             ->middleware('role:Admin|Accreditor');
+
+        // Reports — PSP/CART (all institutions) and institution users (own only, enforced in controller).
+        Route::prefix('reports')->middleware('role:Admin|Accreditor|TrainingOfficer|TrainingInstitution')->group(function () {
+            Route::get('/accreditations', [ReportsController::class, 'accreditations']);
+            Route::get('/renewals', [ReportsController::class, 'renewals']);
+            Route::get('/findings', [ReportsController::class, 'findings']);
+            Route::get('/inspections', [ReportsController::class, 'inspections']);
+        });
     });
 });

@@ -26,6 +26,7 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('residents:recalculate-levels')->dailyAt('01:00');
         $schedule->command('institutions:check-document-expiry')->dailyAt('08:00');
+        $schedule->command('notifications:send-reminders')->dailyAt('06:00');
     }
 
     /**

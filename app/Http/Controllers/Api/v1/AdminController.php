@@ -12,22 +12,26 @@ use Illuminate\Support\Facades\Hash;
 
 class AdminController extends Controller
 {
-public function pending()
-{
-    // Accreditations still in progress (everything except the terminal approved/rejected/probationary states).
-    $accreditations = Accreditation::whereNotIn('status', [
-        Accreditation::STATUS_APPROVED,
-        Accreditation::STATUS_PROBATIONARY,
-        Accreditation::STATUS_REJECTED,
-    ])->with(['institution', 'decisions'])->get();
-    return response()->json(['users' => User::where('status', 'pending')->with('roles')->get(), 'institutions' => Institution::where('registration_status', 'pending')->get(), 'accreditations' => $accreditations]);
-}
+    public function pending()
+    {
+        // Accreditations still in progress (everything except the terminal approved/rejected/probationary states).
+        $accreditations = Accreditation::whereNotIn('status', [
+            Accreditation::STATUS_APPROVED,
+            Accreditation::STATUS_PROBATIONARY,
+            Accreditation::STATUS_REJECTED,
+        ])->with(['institution', 'decisions'])->get();
+        return response()->json(['users' => User::where('status', 'pending')->with('roles')->get(), 'institutions' => Institution::where('registration_status', 'pending')->get(), 'accreditations' => $accreditations]);
+    }
     public function createStaff(Request $r)
     {
+        $autoApprove = !app()->environment('production');
+
         $d = $r->validate(['name' => 'required|string|max:255', 'username' => 'required|string|max:255|unique:users,username', 'email' => 'required|email|unique:users,email', 'password' => 'required|string|min:8', 'role' => 'required|in:Admin,Accreditor']);
-        $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => 'pending']);
+        $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => $autoApprove ? 'approved' : 'pending',  'email_verified_at' => $autoApprove ? now() : null]);
         $u->assignRole($d['role']);
-        $u->sendEmailVerificationNotification();
+        if (!$autoApprove) {
+            $u->sendEmailVerificationNotification();
+        }
         return response()->json($u->load('roles'), 201);
     }
     public function approveUser(Request $r, User $user)

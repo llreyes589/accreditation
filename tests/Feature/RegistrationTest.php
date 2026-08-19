@@ -180,4 +180,75 @@ class RegistrationTest extends TestCase
             ->assertJsonPath('latitude', 10)
             ->assertJsonPath('longitude', 124);
     }
+
+    public function test_dev_registration_auto_approves_and_skips_email(): void
+    {
+        Role::firstOrCreate(['name' => 'TrainingInstitution']);
+        // The test environment is non-production, so registration auto-approves and skips email.
+        $this->assertFalse(app()->environment('production'));
+        \Illuminate\Support\Facades\Notification::fake();
+        $payload = [
+            'institution' => ['name' => 'Dev Inst'],
+            'name' => 'Dev Owner',
+            'username' => 'devowner',
+            'email' => 'devowner@x.ph',
+            'password' => 'password1',
+            'password_confirmation' => 'password1',
+        ];
+        $res = $this->postJson('/api/register/institution', $payload);
+        $res->assertStatus(201)
+            ->assertJsonPath('user.status', 'approved');
+        $user = User::where('username', 'devowner')->first();
+        $this->assertNotNull($user->email_verified_at);
+        $this->assertEquals('approved', $user->fresh()->status);
+        $this->assertEquals('approved', Institution::where('name', 'Dev Inst')->first()->registration_status);
+        // No verification email should be sent in dev mode.
+        \Illuminate\Support\Facades\Notification::assertNothingSent(\Illuminate\Auth\Notifications\VerifyEmail::class);
+    }
+
+    public function test_register_resident_auto_approved_in_dev(): void
+    {
+        Role::firstOrCreate(['name' => 'TrainingInstitution']);
+        $owner = User::create(['name' => 'O', 'username' => 'devro', 'email' => 'devro@x.ph', 'password' => bcrypt('password1'), 'status' => 'approved', 'email_verified_at' => now()]);
+        $owner->assignRole('TrainingInstitution');
+        $i = Institution::create(['name' => 'Dev Inst R', 'registration_status' => 'approved', 'user_id' => $owner->id]);
+        \Illuminate\Support\Facades\Notification::fake();
+        $payload = [
+            'institution_id' => $i->id,
+            'name' => 'Dev Resident',
+            'username' => 'devres',
+            'email' => 'devres@x.ph',
+            'password' => 'password1',
+            'password_confirmation' => 'password1',
+            'track' => 'AP',
+        ];
+        $res = $this->postJson('/api/register/resident', $payload);
+        $res->assertStatus(201)->assertJsonPath('user.status', 'approved');
+        $user = User::where('username', 'devres')->first();
+        $this->assertNotNull($user->email_verified_at);
+        \Illuminate\Support\Facades\Notification::assertNothingSent(\Illuminate\Auth\Notifications\VerifyEmail::class);
+    }
+
+    public function test_production_registration_stays_pending_and_sends_email(): void
+    {
+        Role::firstOrCreate(['name' => 'TrainingInstitution']);
+        $this->app->instance('env', 'production');
+        $this->assertTrue(app()->environment('production'));
+        \Illuminate\Support\Facades\Notification::fake();
+        $payload = [
+            'institution' => ['name' => 'Prod Inst'],
+            'name' => 'Prod Owner',
+            'username' => 'prodowner',
+            'email' => 'prodowner@x.ph',
+            'password' => 'password1',
+            'password_confirmation' => 'password1',
+        ];
+        $res = $this->postJson('/api/register/institution', $payload);
+        $res->assertStatus(201)
+            ->assertJsonPath('user.status', 'pending');
+        $user = User::where('username', 'prodowner')->first();
+        $this->assertNull($user->email_verified_at);
+        $this->assertEquals('pending', Institution::where('name', 'Prod Inst')->first()->registration_status);
+        \Illuminate\Support\Facades\Notification::assertSentTo($user, \Illuminate\Auth\Notifications\VerifyEmail::class);
+    }
 }

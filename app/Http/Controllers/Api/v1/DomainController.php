@@ -9,6 +9,13 @@ use Illuminate\Support\Facades\{DB, Hash};
 
 class DomainController extends Controller
 {
+    private $autoApprove;
+
+    public function __construct()
+    {
+        $this->autoApprove = !app()->environment('production');
+    }
+
     private function institution(Request $r)
     {
         $u = $r->user();
@@ -259,12 +266,14 @@ class DomainController extends Controller
         $d = $r->validate(['name' => 'required|string|max:255', 'username' => 'required|string|max:255|unique:users,username', 'email' => 'required|email|unique:users,email', 'password' => 'required|string|min:8', 'phone' => 'nullable|string|max:50', 'telegram_handle' => 'nullable|string|max:255']);
         $i = $this->institution($r);
         $u = DB::transaction(function () use ($d, $i) {
-            $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => 'pending']);
+            $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => $this->autoApprove ? 'approved' : 'pending',                 'email_verified_at' => $this->autoApprove ? now() : null,]);
             $u->assignRole('TrainingOfficer');
             TrainingOfficer::create(['user_id' => $u->id, 'institution_id' => $i->id, 'phone' => $d['phone'] ?? null, 'telegram_handle' => $d['telegram_handle'] ?? null]);
             return $u;
         });
-        $u->sendEmailVerificationNotification();
+        if (!$this->autoApprove) {
+            $u->sendEmailVerificationNotification();
+        }
         return response()->json($u->load('roles', 'trainingOfficer'), 201);
     }
     public function residents(Request $r)
@@ -279,12 +288,14 @@ class DomainController extends Controller
         $d = $r->validate(['name' => 'required|string|max:255', 'username' => 'required|string|max:255|unique:users,username', 'email' => 'required|email|unique:users,email', 'password' => 'required|string|min:8', 'track' => 'required|in:AP,CP,AP_CP', 'date_accepted' => 'nullable|date|before_or_equal:today', 'age_at_enrollment' => 'nullable|integer|min:0']);
         $i = $this->institution($r);
         $u = DB::transaction(function () use ($d, $i) {
-            $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => 'pending']);
+            $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => $this->autoApprove ? 'approved' : 'pending', 'email_verified_at' => $this->autoApprove ? now() : null]);
             $u->assignRole('Resident');
             Resident::create(['user_id' => $u->id, 'institution_id' => $i->id, 'track' => $d['track'], 'date_accepted' => $d['date_accepted'] ?? null, 'age_at_enrollment' => $d['age_at_enrollment'] ?? null]);
             return $u;
         });
-        $u->sendEmailVerificationNotification();
+        if (!$this->autoApprove) {
+            $u->sendEmailVerificationNotification();
+        }
         return response()->json($u, 201);
     }
     public function requestTransfer(Request $r, Resident $resident)

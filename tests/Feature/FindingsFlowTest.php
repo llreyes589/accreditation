@@ -149,4 +149,42 @@ class FindingsFlowTest extends TestCase
             ->postJson('/api/corrective-actions', ['finding_id' => $findingId, 'action_plan' => 'Plan'])
             ->assertStatus(403);
     }
+
+    /** #4: approving a finding linked to a non-compliant checklist item marks it compliant. */
+    public function test_approve_finding_marks_checklist_item_compliant(): void
+    {
+        $reviewer = $this->staff();
+        $officer = $this->officerWithInstitution();
+        $inspection = $this->inspectionFor($officer);
+
+        $item = ChecklistItem::create([
+            'section' => 'A', 'code' => 'A.1', 'criterion' => 'Has valid license',
+            'is_major' => false, 'sort_order' => 1,
+        ]);
+
+        // Inspection currently records this item as non-compliant.
+        $inspection->update([
+            'answers' => [(string) $item->id => ['compliant' => false, 'notes' => 'Missing']],
+        ]);
+
+        // Reviewer raises a finding tied to that checklist item.
+        $findingId = $this->actingAs($reviewer, 'sanctum')
+            ->postJson('/api/staff/findings', [
+                'accreditation_inspection_id' => $inspection->id,
+                'checklist_item_id' => $item->id,
+                'title' => 'License missing', 'description' => 'No license on file.',
+            ])
+            ->assertStatus(201)
+            ->json('id');
+
+        // Reviewer approves the finding.
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/findings/{$findingId}/approve")
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'resolved');
+
+        // The linked checklist item must now read compliant on the inspection.
+        $inspection->refresh();
+        $this->assertTrue($inspection->answers[(string) $item->id]['compliant'] === true);
+    }
 }

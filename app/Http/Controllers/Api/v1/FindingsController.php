@@ -68,6 +68,41 @@ class FindingsController extends Controller
     }
 
     /**
+     * Reviewer (Admin/Accreditor) approves a finding.
+     * Per the accreditation workflow, approving a finding raised from a
+     * non-compliant checklist item marks that item compliant on the
+     * inspection (the deficiency has been accepted/closed by the reviewer).
+     */
+    public function approve(Request $r, Finding $finding)
+    {
+        abort_unless($r->user()->hasRole('Admin') || $r->user()->hasRole('Accreditor'), 403);
+
+        if ($finding->status === Finding::STATUS_REJECTED) {
+            return response()->json(['message' => 'A rejected finding cannot be approved.'], 422);
+        }
+
+        DB::transaction(function () use ($finding, $r) {
+            $finding->update([
+                'status' => Finding::STATUS_RESOLVED,
+            ]);
+
+            // Mark the linked checklist item compliant on this inspection.
+            if ($finding->checklist_item_id && $finding->inspection) {
+                $inspection = $finding->inspection;
+                $answers = $inspection->answers ?? [];
+                $key = (string) $finding->checklist_item_id;
+                $answers[$key] = [
+                    'compliant' => true,
+                    'notes' => ($answers[$key]['notes'] ?? '') . "\n[Approved by reviewer — marked compliant]",
+                ];
+                $inspection->update(['answers' => $answers]);
+            }
+        });
+
+        return response()->json($finding->fresh());
+    }
+
+    /**
      * Institution (Training Officer) lists corrective actions for their findings.
      * Reviewer sees all (optionally ?finding_id=).
      */

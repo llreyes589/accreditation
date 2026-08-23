@@ -81,7 +81,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/users/{user}/reject', [AdminController::class, 'rejectUser']);
             Route::post('/accreditations/{accreditation}/mark-requirements-completed', [AdminController::class, 'markRequirementsCompleted']);
             Route::post('/accreditations/{accreditation}/schedule-inspection', [AdminController::class, 'scheduleInspection']);
+            Route::post('/accreditations/{accreditation}/inspections/{inspection}/accreditors', [AdminController::class, 'assignAccreditor']);
+            Route::post('/accreditations/{accreditation}/inspections/{inspection}/lead', [AdminController::class, 'changeLeadAccreditor']);
+            Route::delete('/accreditations/{accreditation}/inspections/{inspection}/accreditors/{userId}', [AdminController::class, 'removeAccreditor']);
             Route::get('/accreditations/{accreditation}', [AdminController::class, 'accreditationShow']);
+            Route::get('/accreditations/{accreditation}/inspections/{inspection}', [AdminController::class, 'inspectionShow']);
+            Route::get('/accreditors', [AdminController::class, 'listAccreditors']);
             Route::put('/settings', [AdminController::class, 'settings']);
         });
 
@@ -100,6 +105,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
             /* Findings & Corrective Actions — reviewer (Admin/Accreditor) writes */
             Route::post('/findings', [FindingsController::class, 'store']);
+            Route::post('/findings/{finding}/approve', [FindingsController::class, 'approve']);
             Route::post('/corrective-actions/{action}/verify', [FindingsController::class, 'verify']);
         });
 

@@ -3,15 +3,21 @@
 namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
-use App\Models\{User, Institution, Accreditation, Setting, ChecklistItem, AccreditationDecision};
+use App\Models\{User, Institution, Accreditation, Setting, ChecklistItem, AccreditationDecision, AccreditationInspection, InspectionAccreditor};
 use App\Notifications\{DecisionIssuedNotification, InspectionScheduledReminder};
 use App\Services\NotificationService;
+use App\Services\InspectionAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class AdminController extends Controller
 {
+    private $assignments;
+    public function __construct(InspectionAssignmentService $assignments)
+    {
+        $this->assignments =  $assignments;
+    }
     public function pending()
     {
         // Accreditations still in progress (everything except the terminal approved/rejected/probationary states).
@@ -112,9 +118,46 @@ class AdminController extends Controller
                 'message' => 'Requirements must be marked complete before an inspection can be scheduled.',
             ], 422);
         }
-        $d = $r->validate(['inspection_scheduled_at' => 'required|date|after:today']);
-        $accreditation->update(['inspection_scheduled_at' => $d['inspection_scheduled_at'], 'status' => 'inspection_scheduled']);
-        $inspection = $accreditation->latestInspection;
+        $d = $r->validate([
+            'inspection_scheduled_at' => 'required|date|after:today',
+            'accreditor_ids' => 'nullable|array',
+            'accreditor_ids.*' => 'integer|exists:users,id',
+            'lead_id' => 'nullable|integer|exists:users,id',
+        ]);
+
+        $inspection = DB::transaction(function () use ($r, $accreditation, $d) {
+            $accreditation->update([
+                'inspection_scheduled_at' => $d['inspection_scheduled_at'],
+                'status' => 'inspection_scheduled',
+            ]);
+
+            // Create the inspection row up front so accreditors can be assigned
+            // before the on-site visit (assignable during or after scheduling).
+            $inspection = $accreditation->inspections()->updateOrCreate(
+                ['status' => AccreditationInspection::STATUS_PENDING],
+                ['inspection_scheduled_at' => $d['inspection_scheduled_at']],
+            );
+
+            // Optional: assign accreditors at schedule time.
+            $leadId = $d['lead_id'] ?? null;
+            $accreditorIds = $d['accreditor_ids'] ?? [];
+            if ($leadId !== null && ! in_array($leadId, $accreditorIds, true)) {
+                $accreditorIds[] = $leadId;
+            }
+            foreach ($accreditorIds as $userId) {
+                $user = User::find($userId);
+                if (! $user) {
+                    continue;
+                }
+                $role = ($leadId !== null && $userId == $leadId)
+                    ? \App\Models\InspectionAccreditor::ROLE_LEAD
+                    : \App\Models\InspectionAccreditor::ROLE_MEMBER;
+                $this->assignments->assign($inspection, $user, $role, $inspection->id);
+            }
+
+            return $inspection;
+        });
+
         DB::afterCommit(function () use ($accreditation, $inspection) {
             if (!$inspection) return;
             $svc = new NotificationService();
@@ -122,8 +165,55 @@ class AdminController extends Controller
                 $svc->notify($recipient, new InspectionScheduledReminder($inspection), 'deadline_reminder', ['database', 'email']);
             }
         });
-        return response()->json($accreditation->fresh());
+        return response()->json($accreditation->fresh()->load('inspections'));
     }
+
+    /** Assign an accreditor (lead or member) to a scheduled inspection. */
+    public function assignAccreditor(Request $r, Accreditation $accreditation, AccreditationInspection $inspection)
+    {
+        if ($inspection->accreditation_id !== $accreditation->id) {
+            return response()->json(['message' => 'Inspection does not belong to this accreditation.'], 422);
+        }
+        $d = $r->validate([
+            'user_id' => 'required|integer|exists:users,id',
+            'role' => 'nullable|in:lead,member',
+        ]);
+        $user = User::findOrFail($d['user_id']);
+        $role = $d['role'] ?? \App\Models\InspectionAccreditor::ROLE_MEMBER;
+
+        $this->assignments->assign($inspection, $user, $role, $inspection->id);
+
+        return response()->json($inspection->fresh()->load('accreditors'), 201);
+    }
+
+    /** Change the lead accreditor of a scheduled inspection. */
+    public function changeLeadAccreditor(Request $r, Accreditation $accreditation, AccreditationInspection $inspection)
+    {
+        if ($inspection->accreditation_id !== $accreditation->id) {
+            return response()->json(['message' => 'Inspection does not belong to this accreditation.'], 422);
+        }
+        $d = $r->validate(['user_id' => 'required|integer|exists:users,id']);
+        $user = User::findOrFail($d['user_id']);
+
+        $this->assignments->changeLead($inspection, $user, $inspection->id);
+
+        return response()->json($inspection->fresh()->load('accreditors'));
+    }
+
+    /** Remove an accreditor from a scheduled inspection. */
+    public function removeAccreditor(Request $r, Accreditation $accreditation, AccreditationInspection $inspection, int $userId)
+    {
+        if ($inspection->accreditation_id !== $accreditation->id) {
+            return response()->json(['message' => 'Inspection does not belong to this accreditation.'], 422);
+        }
+        $assignment = $inspection->accreditorAssignments()
+            ->where('user_id', $userId)
+            ->firstOrFail();
+        $this->assignments->remove($inspection, $assignment);
+
+        return response()->json($inspection->fresh()->load('accreditors'));
+    }
+
     public function markRequirementsCompleted(Request $r, Accreditation $accreditation)
     {
         if ($accreditation->status !== Accreditation::STATUS_PENDING) {
@@ -138,10 +228,30 @@ class AdminController extends Controller
     public function accreditationShow(Request $r, Accreditation $accreditation)
     {
         return response()->json([
-            'accreditation' => $accreditation->load(['institution', 'inspections']),
+            'accreditation' => $accreditation->load(['institution', 'inspections.accreditors']),
             'documents' => $accreditation->institution->documents()->get(),
             'checklist_items' => ChecklistItem::orderBy('sort_order')->get(),
         ]);
+    }
+    /** Inspection detail with its assigned accreditors (lead + members). */
+    public function inspectionShow(Request $r, Accreditation $accreditation, AccreditationInspection $inspection)
+    {
+        if ($inspection->accreditation_id !== $accreditation->id) {
+            return response()->json(['message' => 'Inspection does not belong to this accreditation.'], 422);
+        }
+        return response()->json([
+            'inspection' => $inspection->load('accreditors'),
+        ]);
+    }
+
+    /** List users with the Accreditor role (for assignment dropdowns). */
+    public function listAccreditors(Request $r)
+    {
+        $accreditors = \App\Models\User::whereHas('roles', function ($q) {
+            $q->where('name', 'Accreditor');
+        })->select('id', 'name', 'email')->orderBy('name')->get();
+
+        return response()->json(['accreditors' => $accreditors]);
     }
     public function settings(Request $r)
     {

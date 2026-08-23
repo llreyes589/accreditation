@@ -29,7 +29,7 @@ class AccreditorController extends Controller
     {
         return response()->json(
             Accreditation::where('status', Accreditation::STATUS_INSPECTION_SCHEDULED)
-                ->with('institution')
+                ->with(['institution', 'inspections.accreditor'])
                 ->orderBy('inspection_scheduled_at')
                 ->get()
         );
@@ -60,6 +60,15 @@ class AccreditorController extends Controller
         }
 
         $accreditorId = $r->user()->id;
+        // Under the lead/member assignment model the inspection already has an
+        // assigned lead; the submitting accreditor is that lead (or, if the
+        // acting user was not pre-assigned, they become the lead now).
+        $lead = $accreditation->inspections()
+            ->where('status', AccreditationInspection::STATUS_PENDING)
+            ->first();
+        if ($lead && $lead->accreditor_id) {
+            $accreditorId = $lead->accreditor_id;
+        }
         $inspection = $accreditation->inspections()->updateOrCreate(
             ['accreditor_id' => $accreditorId, 'status' => AccreditationInspection::STATUS_PENDING],
             [

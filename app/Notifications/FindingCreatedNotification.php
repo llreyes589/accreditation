@@ -6,7 +6,11 @@ use App\Models\Finding;
 
 class FindingCreatedNotification extends BaseAppNotification
 {
-    public function __construct(private Finding $finding) {}
+    private Finding $finding;
+    public function __construct(Finding $finding)
+    {
+        $this->finding = $finding;
+    }
 
     public function toMail($notifiable)
     {

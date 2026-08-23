@@ -179,12 +179,60 @@ class FindingsFlowTest extends TestCase
 
         // Reviewer approves the finding.
         $this->actingAs($reviewer, 'sanctum')
-            ->postJson("/api/findings/{$findingId}/approve")
+            ->postJson("/api/staff/findings/{$findingId}/approve")
             ->assertStatus(200)
             ->assertJsonPath('status', 'resolved');
 
         // The linked checklist item must now read compliant on the inspection.
         $inspection->refresh();
         $this->assertTrue($inspection->answers[(string) $item->id]['compliant'] === true);
+    }
+
+    /** Non-compliant items: two "No" answers must raise two findings (not one). */
+    public function test_submit_with_two_non_compliant_raises_two_findings(): void
+    {
+        $this->roles();
+        $officer = $this->officerWithInstitution();
+        $accreditor = $this->staff();
+        $instId = $officer->trainingOfficer->institution_id;
+
+        $acc = Accreditation::create([
+            'institution_id' => $instId,
+            'status' => Accreditation::STATUS_INSPECTION_SCHEDULED,
+            'inspection_scheduled_at' => now()->toDateString(),
+            'checklist_snapshot' => [],
+        ]);
+
+        $i1 = ChecklistItem::create(['section' => 'A', 'code' => 'A.1', 'criterion' => 'C1', 'sort_order' => 1]);
+        $i2 = ChecklistItem::create(['section' => 'A', 'code' => 'A.2', 'criterion' => 'C2', 'sort_order' => 2]);
+        $i3 = ChecklistItem::create(['section' => 'A', 'code' => 'A.3', 'criterion' => 'C3', 'sort_order' => 3]);
+
+        // Answer EVERY checklist item (backend requires all answered); two are non-compliant.
+        $answers = [];
+        foreach (ChecklistItem::pluck('id') as $cid) {
+            $nonCompliant = in_array((int) $cid, [$i1->id, $i2->id], true);
+            $answers[(string) $cid] = ['compliant' => !$nonCompliant, 'notes' => $nonCompliant ? 'n' : null];
+        }
+
+        $resp = $this->actingAs($accreditor, 'sanctum')
+            ->postJson("/api/accreditor/accreditations/{$acc->id}/submit-inspection", [
+                'answers' => $answers,
+            ]);
+        $resp->assertStatus(200);
+
+        $inspection = $acc->inspections()->first();
+        $this->assertCount(2, Finding::where('accreditation_inspection_id', $inspection->id)->get());
+
+        $stored = $inspection->answers;
+        $nonCompliant = collect($stored)->filter(fn ($a) => empty($a['compliant']))->count();
+        $this->assertEquals(2, $nonCompliant);
+
+        // The reviewer's findings list must return BOTH non-compliant findings.
+        $list = $this->actingAs($accreditor, 'sanctum')
+            ->getJson('/api/staff/findings')
+            ->assertStatus(200)
+            ->json();
+        $returned = collect($list)->where('accreditation_inspection_id', $inspection->id)->count();
+        $this->assertEquals(2, $returned);
     }
 }

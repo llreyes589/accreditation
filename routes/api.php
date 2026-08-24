@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\v1\{AuthController, VerificationController, AdminController, DomainController, PlacesController, AccreditorController, FindingsController, ReportsController};
+use App\Http\Controllers\Api\v1\{AuthController, VerificationController, AdminController, DomainController, PlacesController, AccreditorController, FindingsController, ReportsController, KanbanController};
 use App\Models\Institution;
 
 Route::get('/places/search', [PlacesController::class, 'search']);
@@ -40,6 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/case-logs', [DomainController::class, 'cases']);
             Route::post('/case-logs', [DomainController::class, 'storeCase']);
             Route::get('/accreditations', [DomainController::class, 'accreditations']);
+            Route::get('/kanban', [KanbanController::class, 'index']);
             Route::post('/accreditations', [DomainController::class, 'submitAccreditation']);
             Route::get('/accreditations/{accreditation}', [DomainController::class, 'accreditationShow']);
             Route::get('/training-officers', [DomainController::class, 'trainingOfficers']);
@@ -107,6 +108,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/findings', [FindingsController::class, 'store']);
             Route::post('/findings/{finding}/approve', [FindingsController::class, 'approve']);
             Route::post('/corrective-actions/{action}/verify', [FindingsController::class, 'verify']);
+            Route::get('/kanban', [KanbanController::class, 'index']);
         });
 
         // Findings read — reviewer AND institution (controller scopes by institution for Training Officer)

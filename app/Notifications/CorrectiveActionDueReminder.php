@@ -6,10 +6,14 @@ use App\Models\CorrectiveAction;
 
 class CorrectiveActionDueReminder extends BaseAppNotification
 {
-    public function __construct(
-        private CorrectiveAction $action,
-        private int $daysRemaining
-    ) {}
+    private CorrectiveAction $action;
+    private int $daysRemaining;
+
+    public function __construct(CorrectiveAction $action, int $daysRemaining)
+    {
+        $this->action = $action;
+        $this->daysRemaining = $daysRemaining;
+    }
 
     public function toMail($notifiable)
     {

@@ -6,10 +6,14 @@ use App\Models\AccreditationInspection;
 
 class InspectionScheduledReminder extends BaseAppNotification
 {
-    public function __construct(
-        private AccreditationInspection $inspection,
-        private ?int $daysRemaining = null
-    ) {}
+    private AccreditationInspection $inspection;
+    private ?int $daysRemaining = null;
+
+    public function __construct(AccreditationInspection $inspection, ?int $daysRemaining = null)
+    {
+        $this->inspection = $inspection;
+        $this->daysRemaining = $daysRemaining;
+    }
 
     public function toMail($notifiable)
     {

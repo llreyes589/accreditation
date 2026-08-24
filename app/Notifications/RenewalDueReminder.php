@@ -6,10 +6,14 @@ use App\Models\Accreditation;
 
 class RenewalDueReminder extends BaseAppNotification
 {
-    public function __construct(
-        private Accreditation $accreditation,
-        private int $daysRemaining
-    ) {}
+    private Accreditation $accreditation;
+    private int $daysRemaining;
+
+    public function __construct(Accreditation $accreditation, int $daysRemaining)
+    {
+        $this->accreditation = $accreditation;
+        $this->daysRemaining = $daysRemaining;
+    }
 
     public function toMail($notifiable)
     {

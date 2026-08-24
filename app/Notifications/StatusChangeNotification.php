@@ -6,11 +6,16 @@ use App\Models\Accreditation;
 
 class StatusChangeNotification extends BaseAppNotification
 {
-    public function __construct(
-        private string $event,
-        private Accreditation $accreditation,
-        private ?string $detail = null
-    ) {}
+    private string $event;
+    private Accreditation $accreditation;
+    private ?string $detail = null;
+
+    public function __construct(string $event, Accreditation $accreditation, ?string $detail = null)
+    {
+        $this->event = $event;
+        $this->accreditation = $accreditation;
+        $this->detail = $detail;
+    }
 
     public function toMail($notifiable)
     {

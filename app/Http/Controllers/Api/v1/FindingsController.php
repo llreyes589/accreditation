@@ -56,7 +56,7 @@ class FindingsController extends Controller
         $d = $r->validate([
             'accreditation_inspection_id' => 'required|exists:accreditation_inspections,id',
             'checklist_item_id' => 'nullable|exists:checklist_items,id',
-            'title' => 'required|string|max:255',
+            'title' => 'required|string',
             'description' => 'required|string',
             'severity' => 'nullable|in:major,minor',
         ]);

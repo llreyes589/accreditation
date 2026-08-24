@@ -6,10 +6,14 @@ use App\Models\Accreditation;
 
 class DecisionIssuedNotification extends BaseAppNotification
 {
-    public function __construct(
-        private Accreditation $accreditation,
-        private string $outcome
-    ) {}
+    private Accreditation $accreditation;
+    private string $outcome;
+
+    public function __construct(Accreditation $accreditation, string $outcome)
+    {
+        $this->accreditation = $accreditation;
+        $this->outcome = $outcome;
+    }
 
     public function toMail($notifiable)
     {

@@ -71,6 +71,9 @@ class KanbanController extends Controller
                         'program' => $a->submission_type ?? 'accreditation',
                         'enteredStageAt' => $a->submitted_at->toDateString(),
                         'note' => $a->status,
+                        'status' => $a->status,
+                        'submissionType' => $a->submission_type,
+                        'inspectionScheduledAt' => $a->inspection_scheduled_at,
                     ];
                 })->all(),
             ];

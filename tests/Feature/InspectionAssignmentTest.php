@@ -214,4 +214,39 @@ class InspectionAssignmentTest extends TestCase
         $this->assertCount(1, $pending['accreditors']);
         $this->assertEquals($lead->id, $pending['accreditors'][0]['id']);
     }
+
+    /** t_e0749ce5: only the assigned lead may submit; members are view-only and must not spawn a duplicate inspection row. */
+    public function test_only_lead_may_submit_inspection(): void
+    {
+        $admin = $this->admin();
+        $lead = $this->accreditor();
+        $member = $this->accreditor();
+        [$acc, $inspection] = $this->scheduledInspection($admin);
+
+        // Assign a lead and a member.
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/admin/accreditations/{$acc->id}/inspections/{$inspection->id}/accreditors", ['user_id' => $lead->id, 'role' => 'lead'])
+            ->assertStatus(201);
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/admin/accreditations/{$acc->id}/inspections/{$inspection->id}/accreditors", ['user_id' => $member->id, 'role' => 'member'])
+            ->assertStatus(201);
+
+        $answers = [];
+        foreach (\App\Models\ChecklistItem::pluck('id') as $cid) {
+            $answers[(string) $cid] = ['compliant' => true];
+        }
+
+        // Member attempts first (accreditation still scheduled) -> rejected 403
+        // and must NOT create a second inspection row.
+        $this->actingAs($member, 'sanctum')
+            ->postJson("/api/accreditor/accreditations/{$acc->id}/submit-inspection", ['answers' => $answers])
+            ->assertStatus(403);
+        $this->assertCount(1, $acc->inspections()->where('status', AccreditationInspection::STATUS_PENDING)->get());
+
+        // Lead may submit (200) and the single inspection row becomes submitted.
+        $this->actingAs($lead, 'sanctum')
+            ->postJson("/api/accreditor/accreditations/{$acc->id}/submit-inspection", ['answers' => $answers])
+            ->assertStatus(200);
+        $this->assertCount(1, $acc->inspections()->where('status', AccreditationInspection::STATUS_SUBMITTED)->get());
+    }
 }

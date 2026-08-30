@@ -67,6 +67,13 @@ class AccreditorController extends Controller
             ->where('status', AccreditationInspection::STATUS_PENDING)
             ->first();
         if ($lead && $lead->accreditor_id) {
+            // An inspection lead is already assigned — only that lead may submit.
+            // Members are view-only (interim decision from the NRL walkthrough).
+            if ($r->user()->id !== $lead->accreditor_id) {
+                return response()->json([
+                    'message' => 'Only the assigned lead accreditor may submit this inspection.',
+                ], 403);
+            }
             $accreditorId = $lead->accreditor_id;
         }
         $inspection = $accreditation->inspections()->updateOrCreate(

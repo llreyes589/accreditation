@@ -82,6 +82,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/users/{user}/reject', [AdminController::class, 'rejectUser']);
             Route::post('/accreditations/{accreditation}/mark-requirements-completed', [AdminController::class, 'markRequirementsCompleted']);
             Route::post('/accreditations/{accreditation}/schedule-inspection', [AdminController::class, 'scheduleInspection']);
+            Route::post('/accreditations/{accreditation}/start-deliberation', [AdminController::class, 'startDeliberation']);
+            Route::post('/accreditations/{accreditation}/checklist', [AdminController::class, 'editChecklist']);
             Route::post('/accreditations/{accreditation}/inspections/{inspection}/accreditors', [AdminController::class, 'assignAccreditor']);
             Route::post('/accreditations/{accreditation}/inspections/{inspection}/lead', [AdminController::class, 'changeLeadAccreditor']);
             Route::delete('/accreditations/{accreditation}/inspections/{inspection}/accreditors/{userId}', [AdminController::class, 'removeAccreditor']);

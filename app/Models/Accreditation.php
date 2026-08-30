@@ -14,6 +14,7 @@ class Accreditation extends Model implements Auditable
     public const STATUS_REQUIREMENTS_COMPLETED = 'requirements_completed';
     public const STATUS_INSPECTION_SCHEDULED = 'inspection_scheduled';
     public const STATUS_INSPECTED = 'inspected';
+    public const STATUS_DELIBERATION = 'deliberation';
     public const STATUS_APPROVED = 'approved';
     public const STATUS_PROBATIONARY = 'probationary';
     public const STATUS_REJECTED = 'rejected';

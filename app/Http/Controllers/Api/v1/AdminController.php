@@ -110,6 +110,69 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Move an inspected accreditation into the deliberation phase.
+     * Per the workflow, once in deliberation the assigned accreditor is locked
+     * out of the checklist and only an admin (chairman) may edit it.
+     */
+    public function startDeliberation(Request $r, Accreditation $accreditation)
+    {
+        if ($accreditation->status !== Accreditation::STATUS_INSPECTED) {
+            return response()->json([
+                'message' => 'Deliberation can only begin after the inspection has been submitted (status: inspected).',
+            ], 422);
+        }
+
+        $accreditation->update(['status' => Accreditation::STATUS_DELIBERATION]);
+
+        return response()->json($accreditation->fresh()->load('decisions'));
+    }
+
+    /**
+     * Admin (chairman) edits the captured checklist during deliberation (or while
+     * still inspected). Accreditors are locked out; this endpoint is admin-only
+     * and only permitted in the deliberation/inspected phases.
+     */
+    public function editChecklist(Request $r, Accreditation $accreditation)
+    {
+        if (! in_array($accreditation->status, [
+            Accreditation::STATUS_DELIBERATION,
+            Accreditation::STATUS_INSPECTED,
+        ], true)) {
+            return response()->json([
+                'message' => 'The checklist can only be edited by an admin during deliberation (or while inspected).',
+            ], 422);
+        }
+
+        $d = $r->validate([
+            'answers' => 'required|array',
+            'answers.*.compliant' => 'required|boolean',
+            'answers.*.notes' => 'nullable|string|max:5000',
+        ]);
+
+        $inspection = $accreditation->inspections()
+            ->where('status', AccreditationInspection::STATUS_SUBMITTED)
+            ->latest()
+            ->first();
+
+        if (! $inspection) {
+            return response()->json(['message' => 'No submitted inspection found for this accreditation.'], 422);
+        }
+
+        // Merge into the existing answers so the admin can adjust individual items.
+        $answers = $inspection->answers ?? [];
+        foreach ($d['answers'] as $itemId => $answer) {
+            $key = (string) $itemId;
+            $answers[$key] = [
+                'compliant' => (bool) $answer['compliant'],
+                'notes' => $answer['notes'] ?? ($answers[$key]['notes'] ?? null),
+            ];
+        }
+        $inspection->update(['answers' => $answers]);
+
+        return response()->json($inspection->fresh());
+    }
+
     public function scheduleInspection(Request $r, Accreditation $accreditation)
     {
         // Inspection is scheduled after the admin marks requirements complete (and before approval).

@@ -61,6 +61,8 @@ class AdminController extends Controller
             'outcome' => 'required|in:approved,probationary,rejected',
             'notes' => 'nullable|string|max:2000',
             'valid_until' => 'nullable|date|after:today',
+            'recommendation' => 'nullable|in:3_years,3_years_conditional,1_year',
+            'vote_count' => 'nullable|integer|min:0',
         ]);
 
         return DB::transaction(function () use ($r, $accreditation, $d) {
@@ -84,6 +86,8 @@ class AdminController extends Controller
 
             $accreditation->decisions()->create([
                 'outcome' => $outcome,
+                'recommendation' => $d['recommendation'] ?? null,
+                'vote_count' => $d['vote_count'] ?? null,
                 'notes' => $d['notes'] ?? null,
                 'valid_from' => $outcome === AccreditationDecision::OUTCOME_REJECTED ? null : today(),
                 'valid_until' => $outcome === AccreditationDecision::OUTCOME_REJECTED ? null : ($d['valid_until'] ?? null),

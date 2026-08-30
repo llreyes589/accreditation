@@ -139,10 +139,14 @@ class AccreditorController extends Controller
         $d = $r->validate([
             'outcome' => 'required|in:draft',
             'notes' => 'nullable|string|max:2000',
+            'recommendation' => 'nullable|in:3_years,3_years_conditional,1_year',
+            'vote_count' => 'nullable|integer|min:0',
         ]);
 
         $decision = $accreditation->decisions()->create([
             'outcome' => AccreditationDecision::OUTCOME_DRAFT,
+            'recommendation' => $d['recommendation'] ?? null,
+            'vote_count' => $d['vote_count'] ?? null,
             'notes' => $d['notes'] ?? null,
             'decided_by' => $r->user()->id,
         ]);

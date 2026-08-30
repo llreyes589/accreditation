@@ -15,9 +15,16 @@ class AccreditationDecision extends Model
     public const OUTCOME_PROBATIONARY = 'probationary';
     public const OUTCOME_REJECTED = 'rejected';
 
+    /** Committee recommendations captured during deliberation. */
+    public const RECOMMENDATION_3_YEARS = '3_years';
+    public const RECOMMENDATION_3_YEARS_CONDITIONAL = '3_years_conditional';
+    public const RECOMMENDATION_1_YEAR = '1_year';
+
     protected $fillable = [
         'accreditation_id',
         'outcome',
+        'recommendation',
+        'vote_count',
         'notes',
         'valid_from',
         'valid_until',

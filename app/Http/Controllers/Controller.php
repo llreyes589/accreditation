@@ -10,4 +10,12 @@ use Illuminate\Routing\Controller as BaseController;
 class Controller extends BaseController
 {
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
+
+    /** In development/test environments, auto-approve users and skip email notifications. */
+    protected $autoApprove;
+
+    public function __construct()
+    {
+        $this->autoApprove = !app()->environment('production');
+    }
 }

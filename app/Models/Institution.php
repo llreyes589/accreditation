@@ -32,4 +32,22 @@ class Institution extends Model implements Auditable
     {
         return $this->hasMany(Accreditation::class);
     }
+
+    /**
+     * Tracks this institution is accredited to train, derived from its
+     * approved/probationary accreditations. Used to validate a resident's
+     * declared training track at registration/enrollment (t_f18a9c4a).
+     */
+    public function accreditedTracks(): array
+    {
+        $tracks = [];
+        foreach ($this->accreditations()
+            ->whereIn('status', [Accreditation::STATUS_APPROVED, Accreditation::STATUS_PROBATIONARY])
+            ->get() as $acc) {
+            foreach ($acc->accreditedTracks() as $t) {
+                $tracks[$t] = true;
+            }
+        }
+        return array_keys($tracks);
+    }
 }

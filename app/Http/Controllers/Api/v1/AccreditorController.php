@@ -91,6 +91,7 @@ class AccreditorController extends Controller
         // Auto-raise a finding for every non-compliant checklist item (preserves context,
         // avoids duplicates: skip items that already have a finding on this inspection).
         $accreditorId = $r->user()->id;
+        $autoApprove = $this->autoApprove;
         foreach ($d['answers'] as $itemId => $answer) {
             if (empty($answer['compliant'])) {
                 $item = ChecklistItem::find($itemId);
@@ -107,10 +108,11 @@ class AccreditorController extends Controller
                         'raised_by' => $accreditorId,
                     ]);
                     // Dispatch after commit: notify the institution + reviewers.
-                    DB::afterCommit(function () use ($finding, $accreditation) {
+                    DB::afterCommit(function () use ($finding, $accreditation, $autoApprove) {
                         $svc = new NotificationService();
+                        $channels = $autoApprove ? ['database'] : ['database', 'email'];
                         foreach (NotificationService::institutionRecipients($accreditation->institution) as $recipient) {
-                            $svc->notify($recipient, new FindingCreatedNotification($finding), 'status_change', ['database', 'email']);
+                            $svc->notify($recipient, new FindingCreatedNotification($finding), 'status_change', $channels);
                         }
                     });
                 }

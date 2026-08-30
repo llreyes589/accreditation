@@ -14,9 +14,11 @@ use Illuminate\Support\Facades\Hash;
 class AdminController extends Controller
 {
     private $assignments;
+
     public function __construct(InspectionAssignmentService $assignments)
     {
-        $this->assignments =  $assignments;
+        parent::__construct();
+        $this->assignments = $assignments;
     }
     public function pending()
     {
@@ -30,12 +32,10 @@ class AdminController extends Controller
     }
     public function createStaff(Request $r)
     {
-        $autoApprove = !app()->environment('production');
-
         $d = $r->validate(['name' => 'required|string|max:255', 'username' => 'required|string|max:255|unique:users,username', 'email' => 'required|email|unique:users,email', 'password' => 'required|string|min:8', 'role' => 'required|in:Admin,Accreditor']);
-        $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => $autoApprove ? 'approved' : 'pending',  'email_verified_at' => $autoApprove ? now() : null]);
+        $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => $this->autoApprove ? 'approved' : 'pending',  'email_verified_at' => $this->autoApprove ? now() : null]);
         $u->assignRole($d['role']);
-        if (!$autoApprove) {
+        if (!$this->autoApprove) {
             $u->sendEmailVerificationNotification();
         }
         return response()->json($u->load('roles'), 201);
@@ -63,7 +63,8 @@ class AdminController extends Controller
             'valid_until' => 'nullable|date|after:today',
             'recommendation' => 'nullable|in:3_years,3_years_conditional,1_year',
             'vote_count' => 'nullable|integer|min:0',
-            'track' => 'nullable|in:AP,CP,APCP',
+            'track' => 'nullable|array',
+            'track.*' => 'in:AP,CP',
         ]);
 
         return DB::transaction(function () use ($r, $accreditation, $d) {
@@ -82,7 +83,7 @@ class AdminController extends Controller
                     'approved_by' => $r->user()->id,
                     'valid_from' => today(),
                     'valid_until' => $validUntil,
-                    'track' => $d['track'] ?? null,
+                    'track' => isset($d['track']) ? implode(',', array_unique($d['track'])) : null,
                 ]);
             }
 
@@ -97,10 +98,12 @@ class AdminController extends Controller
             ]);
 
             // Dispatch after commit: notify the institution + reviewers of the decision.
-            DB::afterCommit(function () use ($accreditation, $outcome) {
+            $autoApprove = $this->autoApprove;
+            DB::afterCommit(function () use ($accreditation, $outcome, $autoApprove) {
                 $svc = new NotificationService();
+                $channels = $autoApprove ? ['database'] : ['database', 'email'];
                 foreach (NotificationService::institutionRecipients($accreditation->institution) as $recipient) {
-                    $svc->notify($recipient, new DecisionIssuedNotification($accreditation, $outcome), 'status_change', ['database', 'email']);
+                    $svc->notify($recipient, new DecisionIssuedNotification($accreditation, $outcome), 'status_change', $channels);
                 }
             });
 
@@ -230,8 +233,10 @@ class AdminController extends Controller
         DB::afterCommit(function () use ($accreditation, $inspection) {
             if (!$inspection) return;
             $svc = new NotificationService();
+            $autoApprove = !app()->environment('production');
+            $channels = $autoApprove ? ['database'] : ['database', 'email'];
             foreach (NotificationService::institutionRecipients($accreditation->institution) as $recipient) {
-                $svc->notify($recipient, new InspectionScheduledReminder($inspection), 'deadline_reminder', ['database', 'email']);
+                $svc->notify($recipient, new InspectionScheduledReminder($inspection), 'deadline_reminder', $channels);
             }
         });
         return response()->json($accreditation->fresh()->load('inspections'));

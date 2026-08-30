@@ -189,11 +189,13 @@ class FindingsController extends Controller
             $this->logStatus($action, CorrectiveAction::STATUS_RESOLVED, null, $r->user()->id);
         });
 
-        DB::afterCommit(function () use ($action) {
+        $autoApprove = $this->autoApprove;
+        DB::afterCommit(function () use ($action, $autoApprove) {
             $acc = $action->finding->inspection->accreditation;
             $svc = new NotificationService();
+            $channels = $autoApprove ? ['database'] : ['database', 'email'];
             foreach (NotificationService::institutionRecipients($acc->institution) as $recipient) {
-                $svc->notify($recipient, new StatusChangeNotification('corrective_action_resolved', $acc, "Action #{$action->id} resolved"), 'status_change', ['database', 'email']);
+                $svc->notify($recipient, new StatusChangeNotification('corrective_action_resolved', $acc, "Action #{$action->id} resolved"), 'status_change', $channels);
             }
         });
 
@@ -229,11 +231,13 @@ class FindingsController extends Controller
             $this->logStatus($action, $newStatus, $d['comment'] ?? null, $r->user()->id);
         });
 
-        DB::afterCommit(function () use ($action, $newStatus) {
+        $autoApprove = $this->autoApprove;
+        DB::afterCommit(function () use ($action, $newStatus, $autoApprove) {
             $acc = $action->finding->inspection->accreditation;
             $svc = new NotificationService();
+            $channels = $autoApprove ? ['database'] : ['database', 'email'];
             foreach (NotificationService::institutionRecipients($acc->institution) as $recipient) {
-                $svc->notify($recipient, new StatusChangeNotification("corrective_action_{$newStatus}", $acc, "Action #{$action->id} {$newStatus}"), 'status_change', ['database', 'email']);
+                $svc->notify($recipient, new StatusChangeNotification("corrective_action_{$newStatus}", $acc, "Action #{$action->id} {$newStatus}"), 'status_change', $channels);
             }
         });
 

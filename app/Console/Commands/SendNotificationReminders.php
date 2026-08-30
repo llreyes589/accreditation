@@ -17,6 +17,8 @@ class SendNotificationReminders extends Command
     {
         $svc = new NotificationService();
         $now = today();
+        $autoApprove = !app()->environment('production');
+        $channels = $autoApprove ? ['database'] : ['database', 'email'];
 
         $expiryLeads = $this->leadDays('accreditation_expiry_lead_days', [30, 60, 90]);
         $renewalLeads = $this->leadDays('renewal_due_lead_days', [30, 60, 90]);
@@ -30,7 +32,7 @@ class SendNotificationReminders extends Command
             $days = (int) $now->diffInDays($acc->valid_until, false);
             if ($days < 0 || !in_array($days, $expiryLeads, true)) continue;
             foreach ($this->institutionRecipients($acc->institution) as $user) {
-                $svc->notify($user, new AccreditationExpiryReminder($acc, $days), 'deadline_reminder', ['database', 'email']);
+                $svc->notify($user, new AccreditationExpiryReminder($acc, $days), 'deadline_reminder', $channels);
             }
         }
 
@@ -40,7 +42,7 @@ class SendNotificationReminders extends Command
             $days = (int) $now->diffInDays($acc->valid_until, false);
             if ($days < 0 || !in_array($days, $renewalLeads, true)) continue;
             foreach ($this->institutionRecipients($acc->institution) as $user) {
-                $svc->notify($user, new RenewalDueReminder($acc, $days), 'deadline_reminder', ['database', 'email']);
+                $svc->notify($user, new RenewalDueReminder($acc, $days), 'deadline_reminder', $channels);
             }
         }
 
@@ -54,7 +56,7 @@ class SendNotificationReminders extends Command
                 $recipients = $recipients->concat($this->institutionRecipients($action->finding->institution()->first()));
             }
             foreach ($recipients->filter() as $user) {
-                $svc->notify($user, new CorrectiveActionDueReminder($action, $days), 'deadline_reminder', ['database', 'email']);
+                $svc->notify($user, new CorrectiveActionDueReminder($action, $days), 'deadline_reminder', $channels);
             }
         }
 
@@ -68,7 +70,7 @@ class SendNotificationReminders extends Command
                 $recipients = $recipients->concat($this->institutionRecipients($insp->accreditation->institution));
             }
             foreach ($recipients->filter() as $user) {
-                $svc->notify($user, new InspectionScheduledReminder($insp, $days), 'deadline_reminder', ['database', 'email']);
+                $svc->notify($user, new InspectionScheduledReminder($insp, $days), 'deadline_reminder', $channels);
             }
         }
 
@@ -78,7 +80,7 @@ class SendNotificationReminders extends Command
             if ((int) $created->diffInDays($now) < $reviewThreshold) continue;
             if ($inst = $finding->institution()->first()) {
                 foreach ($this->institutionRecipients($inst) as $user) {
-                    $svc->notify($user, new FindingCreatedNotification($finding), 'status_change', ['database', 'email']);
+                    $svc->notify($user, new FindingCreatedNotification($finding), 'status_change', $channels);
                 }
             }
         }

@@ -15,7 +15,9 @@ class VerificationController extends Controller
     }
     public function resend(Request $r)
     {
-        if (!$r->user()->hasVerifiedEmail()) $r->user()->sendEmailVerificationNotification();
+        if (!$r->user()->hasVerifiedEmail() && !$this->autoApprove) {
+            $r->user()->sendEmailVerificationNotification();
+        }
         return response()->json(['message' => 'Verification link sent.']);
     }
     public function verify(Request $r, $id, $hash)

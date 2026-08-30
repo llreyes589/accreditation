@@ -97,7 +97,7 @@ class DeliberationDecisionTest extends TestCase
         $this->assertSame(4, $decision->vote_count);
     }
 
-    /** t_0171beef: final status records track (AP/CP/APCP) + validity period. */
+    /** t_0171beef + t_f18a9c4a: final status records track SET (AP,CP) + validity period. */
     public function test_record_decision_stores_track_and_validity(): void
     {
         $admin = $this->admin();
@@ -107,19 +107,36 @@ class DeliberationDecisionTest extends TestCase
         $resp = $this->actingAs($admin, 'sanctum')
             ->postJson("/api/staff/accreditations/{$acc->id}/decision", [
                 'outcome' => 'approved',
-                'track' => 'APCP',
+                'track' => ['AP', 'CP'],
                 'valid_until' => $validUntil,
             ])
             ->assertStatus(200);
 
         $acc->refresh();
-        $this->assertSame('APCP', $acc->track);
+        $this->assertSame('AP,CP', $acc->track);
+        $this->assertSame(['AP', 'CP'], $acc->accreditedTracks());
         $this->assertSame('approved', $acc->status);
         $this->assertNotNull($acc->valid_from);
         $this->assertSame($validUntil, $acc->valid_until->toDateString());
 
-        // The decision ledger reflects the same track.
-        $decision = $acc->decisions()->latest()->first();
-        $this->assertSame('APCP', $resp->json('track'));
+        $this->assertSame('AP,CP', $resp->json('track'));
+    }
+
+    /** t_f18a9c4a: a single-track accreditation stores as a single-element set. */
+    public function test_record_decision_single_track(): void
+    {
+        $admin = $this->admin();
+        $acc = $this->inspectedAccreditation();
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/staff/accreditations/{$acc->id}/decision", [
+                'outcome' => 'approved',
+                'track' => ['CP'],
+            ])
+            ->assertStatus(200);
+
+        $acc->refresh();
+        $this->assertSame('CP', $acc->track);
+        $this->assertSame(['CP'], $acc->accreditedTracks());
     }
 }

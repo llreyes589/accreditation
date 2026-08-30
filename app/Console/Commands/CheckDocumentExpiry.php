@@ -13,6 +13,9 @@ class CheckDocumentExpiry extends Command
     public function handle()
     {
         if (now()->month !== 12) return 0;
+        // In non-production environments, skip sending email notifications (database-only).
+        if (!app()->environment('production')) return 0;
+
         InstitutionDocument::whereYear('expires_at', now()->addYear()->year)->each(function ($doc) {
             $doc->institution->trainingOfficers()->with('user')->get()->each(function ($officer) use ($doc) {
                 $officer->user->notify(new LicenseExpiryReminder($doc));

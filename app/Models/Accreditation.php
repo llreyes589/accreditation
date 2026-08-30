@@ -18,6 +18,9 @@ class Accreditation extends Model implements Auditable
     public const STATUS_APPROVED = 'approved';
     public const STATUS_PROBATIONARY = 'probationary';
     public const STATUS_REJECTED = 'rejected';
+    public const TRACK_AP = 'AP';
+    public const TRACK_CP = 'CP';
+    public const VALID_TRACKS = ['AP', 'CP'];
     protected $fillable = ['institution_id', 'checklist_snapshot', 'approved_by', 'valid_from', 'valid_until', 'track', 'status', 'submission_type', 'inspection_scheduled_at', 'submitted_at'];
     protected $casts = ['checklist_snapshot' => 'array', 'valid_from' => 'date', 'valid_until' => 'date', 'inspection_scheduled_at' => 'date', 'submitted_at' => 'date'];
     public function institution()
@@ -61,5 +64,20 @@ class Accreditation extends Model implements Auditable
     {
         $have = $this->institution->documents()->whereIn('type', self::REQUIRED_DOC_TYPES)->pluck('type')->all();
         return array_values(array_diff(self::REQUIRED_DOC_TYPES, $have));
+    }
+
+    /**
+     * Parse the accredited tracks stored as a comma-separated set ("AP,CP")
+     * into a clean array of valid track codes. An empty/null track yields [].
+     */
+    public function accreditedTracks(): array
+    {
+        if (blank($this->track)) {
+            return [];
+        }
+        return array_values(array_filter(
+            array_map('trim', explode(',', (string) $this->track)),
+            fn ($t) => in_array($t, self::VALID_TRACKS, true)
+        ));
     }
 }

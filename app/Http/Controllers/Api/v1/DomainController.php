@@ -9,11 +9,9 @@ use Illuminate\Support\Facades\{DB, Hash};
 
 class DomainController extends Controller
 {
-    private $autoApprove;
-
     public function __construct()
     {
-        $this->autoApprove = !app()->environment('production');
+        parent::__construct();
     }
 
     private function institution(Request $r)
@@ -287,15 +285,27 @@ class DomainController extends Controller
     {
         $d = $r->validate(['name' => 'required|string|max:255', 'username' => 'required|string|max:255|unique:users,username', 'email' => 'required|email|unique:users,email', 'password' => 'required|string|min:8', 'track' => 'required|in:AP,CP,AP_CP', 'date_accepted' => 'nullable|date|before_or_equal:today', 'age_at_enrollment' => 'nullable|integer|min:0']);
         $i = $this->institution($r);
+        // Propagate/validate the resident's training track against the institution's
+        // accredited tracks (t_f18a9c4a). AP_CP is treated as both AP and CP.
+        $requested = $d['track'] === 'AP_CP' ? ['AP', 'CP'] : [$d['track']];
+        $allowed = $i->accreditedTracks();
+        if (!empty($allowed) && array_diff($requested, $allowed) !== []) {
+            return response()->json([
+                'message' => 'This institution is not accredited for the selected track. Accredited tracks: ' . (implode(', ', $allowed) ?: 'none') . '.',
+            ], 422);
+        }
         // Residents always start pending and are approved through the resident lifecycle workflow
         // (not auto-approved in dev like institution owners), so the approval gate is preserved.
+        // However, email verification is skipped in non-production environments.
         $u = DB::transaction(function () use ($d, $i) {
             $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => 'pending']);
             $u->assignRole('Resident');
             Resident::create(['user_id' => $u->id, 'institution_id' => $i->id, 'track' => $d['track'], 'date_accepted' => $d['date_accepted'] ?? null, 'age_at_enrollment' => $d['age_at_enrollment'] ?? null]);
             return $u;
         });
-        $u->sendEmailVerificationNotification();
+        if (!$this->autoApprove) {
+            $u->sendEmailVerificationNotification();
+        }
         return response()->json($u, 201);
     }
     public function requestTransfer(Request $r, Resident $resident)

@@ -18,7 +18,7 @@ class Accreditation extends Model implements Auditable
     public const STATUS_APPROVED = 'approved';
     public const STATUS_PROBATIONARY = 'probationary';
     public const STATUS_REJECTED = 'rejected';
-    protected $fillable = ['institution_id', 'checklist_snapshot', 'approved_by', 'valid_from', 'valid_until', 'status', 'submission_type', 'inspection_scheduled_at', 'submitted_at'];
+    protected $fillable = ['institution_id', 'checklist_snapshot', 'approved_by', 'valid_from', 'valid_until', 'track', 'status', 'submission_type', 'inspection_scheduled_at', 'submitted_at'];
     protected $casts = ['checklist_snapshot' => 'array', 'valid_from' => 'date', 'valid_until' => 'date', 'inspection_scheduled_at' => 'date', 'submitted_at' => 'date'];
     public function institution()
     {

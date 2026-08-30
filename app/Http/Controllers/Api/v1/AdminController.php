@@ -63,6 +63,7 @@ class AdminController extends Controller
             'valid_until' => 'nullable|date|after:today',
             'recommendation' => 'nullable|in:3_years,3_years_conditional,1_year',
             'vote_count' => 'nullable|integer|min:0',
+            'track' => 'nullable|in:AP,CP,APCP',
         ]);
 
         return DB::transaction(function () use ($r, $accreditation, $d) {
@@ -81,6 +82,7 @@ class AdminController extends Controller
                     'approved_by' => $r->user()->id,
                     'valid_from' => today(),
                     'valid_until' => $validUntil,
+                    'track' => $d['track'] ?? null,
                 ]);
             }
 

@@ -96,4 +96,30 @@ class DeliberationDecisionTest extends TestCase
         $this->assertSame(AccreditationDecision::RECOMMENDATION_1_YEAR, $decision->recommendation);
         $this->assertSame(4, $decision->vote_count);
     }
+
+    /** t_0171beef: final status records track (AP/CP/APCP) + validity period. */
+    public function test_record_decision_stores_track_and_validity(): void
+    {
+        $admin = $this->admin();
+        $acc = $this->inspectedAccreditation();
+
+        $validUntil = today()->addYears(3)->toDateString();
+        $resp = $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/staff/accreditations/{$acc->id}/decision", [
+                'outcome' => 'approved',
+                'track' => 'APCP',
+                'valid_until' => $validUntil,
+            ])
+            ->assertStatus(200);
+
+        $acc->refresh();
+        $this->assertSame('APCP', $acc->track);
+        $this->assertSame('approved', $acc->status);
+        $this->assertNotNull($acc->valid_from);
+        $this->assertSame($validUntil, $acc->valid_until->toDateString());
+
+        // The decision ledger reflects the same track.
+        $decision = $acc->decisions()->latest()->first();
+        $this->assertSame('APCP', $resp->json('track'));
+    }
 }

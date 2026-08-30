@@ -235,4 +235,65 @@ class FindingsFlowTest extends TestCase
         $returned = collect($list)->where('accreditation_inspection_id', $inspection->id)->count();
         $this->assertEquals(2, $returned);
     }
+
+    /**
+     * t_f11ac1d1 end-to-end: a real "No" submission auto-raises a finding,
+     * the institution proposes a corrective action and resolves it, the reviewer
+     * verifies it, then approves the finding which flips the checklist item to
+     * compliant. Exercises every seam of the chain in one flow.
+     */
+    public function test_no_to_approved_compliant_full_chain(): void
+    {
+        $this->roles();
+        $officer = $this->officerWithInstitution();
+        $reviewer = $this->staff();
+        $instId = $officer->trainingOfficer->institution_id;
+
+        // Accreditation owned by the officer's institution, scheduled + lead assigned.
+        $acc = Accreditation::create([
+            'institution_id' => $instId,
+            'status' => Accreditation::STATUS_INSPECTION_SCHEDULED,
+            'inspection_scheduled_at' => now()->toDateString(),
+            'checklist_snapshot' => [],
+        ]);
+        $inspection = $acc->inspections()->create([
+            'accreditor_id' => $reviewer->id,
+            'status' => AccreditationInspection::STATUS_PENDING,
+        ]);
+
+        $item = ChecklistItem::create(['section' => 'A', 'code' => 'A.1', 'criterion' => 'SOP exists', 'is_major' => false, 'sort_order' => 1]);
+
+        // Submit with this item marked non-compliant -> auto-raises a finding.
+        $all = ChecklistItem::pluck('id')->all();
+        $answers = [];
+        foreach ($all as $cid) {
+            $answers[(string) $cid] = ['compliant' => (int) $cid !== $item->id, 'notes' => (int) $cid === $item->id ? 'Missing' : null];
+        }
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/accreditor/accreditations/{$acc->id}/submit-inspection", ['answers' => $answers])
+            ->assertStatus(200);
+
+        $inspection->refresh();
+        $this->assertFalse($inspection->answers[(string) $item->id]['compliant']);
+        $findingId = Finding::where('accreditation_inspection_id', $inspection->id)
+            ->where('checklist_item_id', $item->id)->firstOrFail()->id;
+
+        // Institution proposes + resolves a corrective action.
+        $actionId = $this->actingAs($officer, 'sanctum')
+            ->postJson('/api/corrective-actions', ['finding_id' => $findingId, 'action_plan' => 'Draft SOP'])
+            ->assertStatus(201)->json('id');
+        $this->actingAs($officer, 'sanctum')
+            ->postJson("/api/corrective-actions/{$actionId}/resolve")->assertStatus(200);
+
+        // Reviewer verifies the action, then approves the finding -> item compliant.
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/staff/corrective-actions/{$actionId}/verify", ['decision' => 'verified', 'comment' => 'Accepted'])
+            ->assertStatus(200)->assertJsonPath('status', 'verified');
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/staff/findings/{$findingId}/approve")
+            ->assertStatus(200)->assertJsonPath('status', 'resolved');
+
+        $inspection->refresh();
+        $this->assertTrue($inspection->answers[(string) $item->id]['compliant'] === true);
+    }
 }

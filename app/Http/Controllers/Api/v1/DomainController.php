@@ -315,26 +315,26 @@ class DomainController extends Controller
         $d = $r->validate(['to_institution_id' => 'required|exists:institutions,id', 'reason' => 'nullable|string|max:255']);
         abort_if($d['to_institution_id'] == $i->id, 422, 'Destination must be another institution.');
         abort_unless(\App\Models\Institution::where('id', $d['to_institution_id'])->where('registration_status', 'approved')->exists(), 422);
-        return response()->json(ResidentTransfer::create($d + ['resident_id' => $resident->id, 'from_institution_id' => $i->id, 'requested_by' => $r->user()->id]), 201);
+        return response()->json(ResidentTransfer::create($d + ['resident_id' => $resident->id, 'from_institution_id' => $i->id, 'requested_by' => $r->user()->id, 'status' => ResidentTransfer::STATUS_PENDING]), 201);
     }
     public function incomingTransfers(Request $r)
     {
-        return ResidentTransfer::where('to_institution_id', $this->institution($r)->id)->where('status', 'pending')->with(['resident.user', 'destination'])->get();
+        return ResidentTransfer::where('to_institution_id', $this->institution($r)->id)->where('status', ResidentTransfer::STATUS_PENDING)->with(['resident.user', 'destination'])->get();
     }
     public function acceptTransfer(Request $r, ResidentTransfer $transfer)
     {
         $i = $this->institution($r);
-        abort_unless($transfer->to_institution_id === $i->id && $transfer->status === 'pending', 403);
+        abort_unless($transfer->to_institution_id === $i->id && $transfer->status === ResidentTransfer::STATUS_PENDING, 403);
         DB::transaction(function () use ($transfer, $r, $i) {
             $transfer->resident->update(['institution_id' => $i->id]);
-            $transfer->update(['status' => 'accepted', 'decided_by' => $r->user()->id, 'decided_at' => now()]);
+            $transfer->update(['status' => ResidentTransfer::STATUS_ACCEPTED, 'decided_by' => $r->user()->id, 'decided_at' => now()]);
         });
         return response()->json($transfer->fresh());
     }
     public function rejectTransfer(Request $r, ResidentTransfer $transfer)
     {
-        abort_unless($transfer->to_institution_id === $this->institution($r)->id && $transfer->status === 'pending', 403);
-        $transfer->update(['status' => 'rejected', 'decided_by' => $r->user()->id, 'decided_at' => now()]);
+        abort_unless($transfer->to_institution_id === $this->institution($r)->id && $transfer->status === ResidentTransfer::STATUS_PENDING, 403);
+        $transfer->update(['status' => ResidentTransfer::STATUS_DENIED, 'decided_by' => $r->user()->id, 'decided_at' => now()]);
         return response()->json($transfer);
     }
     public function consultantDocuments(Request $r, Consultant $consultant)

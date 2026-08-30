@@ -29,4 +29,13 @@ class InspectionAssignmentException extends Exception
             422,
         );
     }
+
+    public static function inspectionLimitExceeded(int $limit, int $count): self
+    {
+        return new self(
+            "An inspection may have at most {$limit} accreditors (lead + members)"
+                . " ({$count} already assigned).",
+            422,
+        );
+    }
 }

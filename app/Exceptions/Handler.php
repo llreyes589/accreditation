@@ -32,6 +32,8 @@ class Handler extends ExceptionHandler
      */
     public function register()
     {
-        //
+        $this->renderable(function (\App\Exceptions\InspectionAssignmentException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getCode() ?: 422);
+        });
     }
 }

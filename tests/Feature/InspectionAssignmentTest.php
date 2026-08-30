@@ -167,6 +167,37 @@ class InspectionAssignmentTest extends TestCase
             ->assertStatus(403);
     }
 
+    /** t_ca34c167: an inspection may have at most 3 accreditors (lead + members). */
+    public function test_inspection_cap_blocks_fourth_accreditor(): void
+    {
+        $admin = $this->admin();
+        [$acc, $inspection] = $this->scheduledInspection($admin);
+
+        // Assign a lead + two members (3 total) -> all ok.
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/admin/accreditations/{$acc->id}/inspections/{$inspection->id}/accreditors", ['user_id' => $this->accreditor()->id, 'role' => 'lead'])
+            ->assertStatus(201);
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/admin/accreditations/{$acc->id}/inspections/{$inspection->id}/accreditors", ['user_id' => $this->accreditor()->id, 'role' => 'member'])
+            ->assertStatus(201);
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/admin/accreditations/{$acc->id}/inspections/{$inspection->id}/accreditors", ['user_id' => $this->accreditor()->id, 'role' => 'member'])
+            ->assertStatus(201);
+
+        // Fourth accreditor -> blocked by the per-inspection cap.
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/admin/accreditations/{$acc->id}/inspections/{$inspection->id}/accreditors", ['user_id' => $this->accreditor()->id, 'role' => 'member'])
+            ->assertStatus(422)
+            ->assertJsonFragment(['message' => 'An inspection may have at most 3 accreditors (lead + members) (3 already assigned).']);
+
+        $detail = $this->actingAs($admin, 'sanctum')
+            ->getJson("/api/admin/accreditations/{$acc->id}")
+            ->assertStatus(200)
+            ->json();
+        $pending = collect($detail['accreditation']['inspections'])->firstWhere('status', AccreditationInspection::STATUS_PENDING);
+        $this->assertCount(3, $pending['accreditors']);
+    }
+
     /** Mirrors the exact frontend flow: schedule -> open detail (empty) -> assign -> detail (populated) -> remove -> detail (removed). */
     public function test_frontend_detail_flow_shows_assigned_accreditors(): void
     {

@@ -39,6 +39,18 @@ class InspectionAssignmentService
             throw InspectionAssignmentException::duplicate();
         }
 
+        // Per-inspection cap: a single inspection may have at most
+        // MAX_ACCREDITORS_PER_INSPECTION accreditors (lead + members).
+        $assignedCount = $inspection->accreditorAssignments()
+            ->where('status', '!=', InspectionAccreditor::STATUS_REMOVED)
+            ->count();
+        if ($assignedCount >= AccreditationInspection::MAX_ACCREDITORS_PER_INSPECTION) {
+            throw InspectionAssignmentException::inspectionLimitExceeded(
+                AccreditationInspection::MAX_ACCREDITORS_PER_INSPECTION,
+                $assignedCount,
+            );
+        }
+
         $this->assertWithinDailyLimit($accreditor->id, $inspection->inspection_scheduled_at, $ignoreInspectionId);
 
         $assignment = DB::transaction(function () use ($inspection, $accreditor, $role) {
@@ -104,15 +116,27 @@ class InspectionAssignmentService
                 ->where('status', '!=', InspectionAccreditor::STATUS_REMOVED)
                 ->first();
 
-            if ($assignment) {
-                $assignment->forceFill(['role' => InspectionAccreditor::ROLE_LEAD])->save();
-            } else {
-                $inspection->accreditorAssignments()->create([
+            if (! $assignment) {
+                // Promoted from outside the inspection — this adds a new accreditor,
+                // so enforce the per-inspection headcount cap.
+                $assignedCount = $inspection->accreditorAssignments()
+                    ->where('status', '!=', InspectionAccreditor::STATUS_REMOVED)
+                    ->count();
+                if ($assignedCount >= AccreditationInspection::MAX_ACCREDITORS_PER_INSPECTION) {
+                    throw InspectionAssignmentException::inspectionLimitExceeded(
+                        AccreditationInspection::MAX_ACCREDITORS_PER_INSPECTION,
+                        $assignedCount,
+                    );
+                }
+
+                $assignment = $inspection->accreditorAssignments()->create([
                     'user_id' => $newLead->id,
                     'role' => InspectionAccreditor::ROLE_LEAD,
                     'status' => InspectionAccreditor::STATUS_INVITED,
                     'assigned_at' => now(),
                 ]);
+            } else {
+                $assignment->forceFill(['role' => InspectionAccreditor::ROLE_LEAD])->save();
             }
 
             $inspection->forceFill(['accreditor_id' => $newLead->id])->save();

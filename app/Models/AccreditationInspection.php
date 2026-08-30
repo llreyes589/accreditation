@@ -20,6 +20,12 @@ class AccreditationInspection extends Model
      */
     public const MAX_PER_ACCREDITOR_PER_DAY = 3;
 
+    /**
+     * Maximum total accreditors (lead + members) assignable to a single
+     * inspection, per the operating rule ("tatlo kayong creditor").
+     */
+    public const MAX_ACCREDITORS_PER_INSPECTION = 3;
+
     protected $fillable = [
         'accreditation_id', 'accreditor_id', 'inspection_scheduled_at',
         'conducted_at', 'status', 'answers',

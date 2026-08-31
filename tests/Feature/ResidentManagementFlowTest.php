@@ -164,6 +164,18 @@ class ResidentManagementFlowTest extends TestCase
         $this->assertNotNull($resident->fresh()->completion_reviewed_at);
     }
 
+    /** Slice 5 (flowchart P): mark training period complete. */
+    public function test_mark_period_complete(): void
+    {
+        $u = $this->officerWithInstitution();
+        [, $resident] = $this->createResident($u, 'AP');
+
+        $res = $this->actingAs($u, 'sanctum')
+            ->postJson("/api/residents/{$resident->id}/period-complete");
+        $res->assertStatus(200);
+        $this->assertNotNull($resident->fresh()->period_completed_at);
+    }
+
     public function test_transfer_requested(): void
     {
         $u = $this->officerWithInstitution();

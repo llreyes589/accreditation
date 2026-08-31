@@ -9,8 +9,8 @@ use Illuminate\Support\Carbon;
 class Resident extends Model
 {
     use SoftDeletes;
-    protected $fillable = ['user_id', 'institution_id', 'track', 'date_accepted', 'expected_completion_date', 'age_at_enrollment', 'year_level', 'promotion_status', 'promotion_evaluated_at', 'completion_reviewed_at'];
-    protected $casts = ['date_accepted' => 'date', 'expected_completion_date' => 'date', 'promotion_evaluated_at' => 'datetime', 'completion_reviewed_at' => 'datetime'];
+    protected $fillable = ['user_id', 'institution_id', 'track', 'date_accepted', 'expected_completion_date', 'age_at_enrollment', 'year_level', 'promotion_status', 'promotion_evaluated_at', 'completion_reviewed_at', 'period_completed_at'];
+    protected $casts = ['date_accepted' => 'date', 'expected_completion_date' => 'date', 'promotion_evaluated_at' => 'datetime', 'completion_reviewed_at' => 'datetime', 'period_completed_at' => 'datetime'];
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -45,6 +45,13 @@ class Resident extends Model
     public function markCompletionReviewed()
     {
         $this->completion_reviewed_at = now();
+        $this->save();
+    }
+
+    /** Flowchart node P: training officer marks the current training period complete. */
+    public function markPeriodComplete()
+    {
+        $this->period_completed_at = now();
         $this->save();
     }
 }

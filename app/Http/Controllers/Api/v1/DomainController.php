@@ -359,6 +359,15 @@ class DomainController extends Controller
         return response()->json($resident);
     }
 
+    /** Flowchart node P: training officer marks the current training period complete. */
+    public function markPeriodComplete(Request $r, Resident $resident)
+    {
+        $i = $this->institution($r);
+        abort_unless($resident->institution_id === $i->id, 403);
+        $resident->markPeriodComplete();
+        return response()->json($resident);
+    }
+
     public function requestTransfer(Request $r, Resident $resident)
     {
         $i = $this->institution($r);

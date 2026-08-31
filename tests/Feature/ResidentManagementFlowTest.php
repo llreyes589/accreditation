@@ -140,4 +140,28 @@ class ResidentManagementFlowTest extends TestCase
             ->postJson("/api/residents/{$resident->id}/transfers", ['to_institution_id' => $dest->id, 'reason' => 'move'])
             ->assertStatus(201);
     }
+
+    /** Slice 2: resident portfolio endpoint aggregates the resident's training records. */
+    public function test_resident_portfolio_aggregates_records(): void
+    {
+        $u = $this->officerWithInstitution();
+        [, $resident] = $this->createResident($u);
+
+        $this->actingAs($u, 'sanctum')->postJson('/api/case-logs', [
+            'resident_id' => $resident->id, 'case_type' => 'Biopsy', 'procedure' => 'FFPE', 'count' => 12,
+        ])->assertStatus(201);
+        $this->actingAs($u, 'sanctum')->postJson('/api/research-papers', [
+            'resident_id' => $resident->id, 'title' => 'Paper', 'stage' => 'published',
+        ])->assertStatus(201);
+        $this->actingAs($u, 'sanctum')->postJson('/api/consultant-evaluations', [
+            'resident_id' => $resident->id, 'period' => '2026-Q1', 'recommendation' => 'continue',
+        ])->assertStatus(201);
+
+        $res = $this->actingAs($u, 'sanctum')->getJson("/api/residents/{$resident->id}");
+        $res->assertStatus(200)
+            ->assertJsonPath('resident.id', $resident->id)
+            ->assertJsonCount(1, 'case_logs')
+            ->assertJsonCount(1, 'research_papers')
+            ->assertJsonCount(1, 'consultant_evaluations');
+    }
 }

@@ -308,6 +308,39 @@ class DomainController extends Controller
         }
         return response()->json($u, 201);
     }
+
+    /** Resident portfolio hub (flowchart J/K/L/S): the resident plus all training records. */
+    public function residentPortfolio(Request $r, Resident $resident)
+    {
+        $i = $this->institution($r);
+        abort_unless($resident->institution_id === $i->id, 403);
+
+        $caseLogs = CaseLog::where('resident_id', $resident->id)->orderByDesc('logged_at')->get();
+        $quizResults = QuizResult::where('resident_id', $resident->id)
+            ->with('quiz')->orderByDesc('taken_at')->get();
+        $evaluations = ConsultantEvaluation::where('resident_id', $resident->id)
+            ->with('consultant')->orderByDesc('evaluated_at')->get();
+        $papers = ResearchPaper::where('resident_id', $resident->id)->orderByDesc('created_at')->get();
+        $remediation = RemediationPlan::where('resident_id', $resident->id)
+            ->orderByDesc('created_at')->get();
+        $archives = PortfolioArchive::where('resident_id', $resident->id)
+            ->orderByDesc('archived_at')->get();
+        $reviews = ConsultantReview::whereHas('assignment', function ($q) use ($resident) {
+            $q->where('resident_id', $resident->id);
+        })->with(['consultant', 'assignment.rotationBlock'])->orderByDesc('created_at')->get();
+
+        return response()->json([
+            'resident' => $resident->load('user'),
+            'case_logs' => $caseLogs,
+            'quiz_results' => $quizResults,
+            'consultant_evaluations' => $evaluations,
+            'research_papers' => $papers,
+            'remediation_plans' => $remediation,
+            'portfolio_archives' => $archives,
+            'consultant_reviews' => $reviews,
+        ]);
+    }
+
     public function requestTransfer(Request $r, Resident $resident)
     {
         $i = $this->institution($r);

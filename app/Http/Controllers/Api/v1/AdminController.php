@@ -344,14 +344,16 @@ class AdminController extends Controller
      */
     private function validityYearsFromRecommendation(?string $recommendation): int
     {
-        return match ($recommendation) {
-            AccreditationDecision::RECOMMENDATION_3_YEARS,
-            AccreditationDecision::RECOMMENDATION_3_YEARS_CONDITIONAL => 3,
-            AccreditationDecision::RECOMMENDATION_1_YEAR => 1,
-            default => (static function (): int {
-                $years = (int) Setting::getValue('accreditation_years', 1);
-                return in_array($years, [1, 3], true) ? $years : 1;
-            })(),
-        };
+        if ($recommendation === AccreditationDecision::RECOMMENDATION_3_YEARS
+            || $recommendation === AccreditationDecision::RECOMMENDATION_3_YEARS_CONDITIONAL) {
+            return 3;
+        }
+
+        if ($recommendation === AccreditationDecision::RECOMMENDATION_1_YEAR) {
+            return 1;
+        }
+
+        $years = (int) Setting::getValue('accreditation_years', 1);
+        return in_array($years, [1, 3], true) ? $years : 1;
     }
 }

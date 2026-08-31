@@ -14,8 +14,10 @@ class ReportsController extends Controller
     {
         $user = $r->user();
         if ($user->hasRole('TrainingOfficer') || $user->hasRole('TrainingInstitution')) {
-            $inst = $user->trainingOfficer->institution
-                ?? Institution::where('user_id', $user->id)->first();
+            // TrainingInstitution users own their institution directly; TrainingOfficer
+            // users are linked via the training_officers pivot row.
+            $inst = Institution::where('user_id', $user->id)->first()
+                ?? optional($user->trainingOfficer)->institution;
             if (!$inst) abort(403, 'No institution associated with this account.');
             // Institution users cannot request a different institution.
             if ($r->filled('institution_id') && (int) $r->institution_id !== $inst->id) {

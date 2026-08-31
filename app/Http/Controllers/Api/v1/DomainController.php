@@ -144,7 +144,7 @@ class DomainController extends Controller
     public function storeQuiz(Request $r)
     {
         $d = $r->validate(['title' => 'required|string|max:255', 'type' => 'required|in:quiz,exam,rise', 'max_score' => 'required|numeric|min:1']);
-        return response()->json(Quiz::create(array_merge($d, ['institution_id' => $this->institution($r)->id, 'created_by' => $r->user()->trainingOfficer->id])), 201);
+        return response()->json(Quiz::create(array_merge($d, ['institution_id' => $this->institution($r)->id, 'created_by' => optional($r->user()->trainingOfficer)->id])), 201);
     }
     public function storeResult(Request $r, Quiz $quiz)
     {

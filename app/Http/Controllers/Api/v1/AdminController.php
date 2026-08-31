@@ -73,9 +73,11 @@ class AdminController extends Controller
             if ($outcome === AccreditationDecision::OUTCOME_REJECTED) {
                 $accreditation->update(['status' => Accreditation::STATUS_REJECTED]);
             } else {
-                $years = (int) Setting::getValue('accreditation_years', 1);
-                $years = in_array($years, [1, 3], true) ? $years : 1;
-                $validUntil = $d['valid_until'] ?? today()->addYears($years);
+                // Validity follows the chosen recommendation: 3-year (incl.
+                // conditional) -> 3 years, 1-year -> 1 year. An explicitly sent
+                // valid_until still wins; otherwise the recommendation drives it
+                // (falling back to the accreditation_years Setting when none given).
+                $validUntil = $d['valid_until'] ?? today()->addYears($this->validityYearsFromRecommendation($d['recommendation'] ?? null));
                 $accreditation->update([
                     'status' => $outcome === AccreditationDecision::OUTCOME_PROBATIONARY
                         ? Accreditation::STATUS_PROBATIONARY
@@ -332,5 +334,24 @@ class AdminController extends Controller
         $r->validate(['settings.accreditation_years' => 'nullable|integer|in:1,3']);
         foreach ($r->validate(['settings' => 'required|array'])['settings'] as $k => $v) if (in_array($k, ['track_durations', 'promotion_thresholds', 'accreditation_years'])) Setting::updateOrCreate(['key' => $k], ['value' => $v]);
         return response()->json(Setting::all());
+    }
+
+    /**
+     * Resolve the validity period (in years) from a decision recommendation.
+     * Any 3-year variant (incl. conditional) -> 3 years; 1-year -> 1 year.
+     * When no recommendation is given, fall back to the accreditation_years
+     * Setting (1 or 3, defaulting to 1).
+     */
+    private function validityYearsFromRecommendation(?string $recommendation): int
+    {
+        return match ($recommendation) {
+            AccreditationDecision::RECOMMENDATION_3_YEARS,
+            AccreditationDecision::RECOMMENDATION_3_YEARS_CONDITIONAL => 3,
+            AccreditationDecision::RECOMMENDATION_1_YEAR => 1,
+            default => (static function (): int {
+                $years = (int) Setting::getValue('accreditation_years', 1);
+                return in_array($years, [1, 3], true) ? $years : 1;
+            })(),
+        };
     }
 }

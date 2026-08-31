@@ -3,8 +3,7 @@
 namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
-use App\Models\Accreditation;
-use App\Models\User;
+use App\Models\{Accreditation, Finding, User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -46,7 +45,7 @@ class KanbanController extends Controller
         $user = $r->user();
         $isStaff = $user->hasRole('Admin') || $user->hasRole('Accreditor');
 
-        $query = Accreditation::query()->with('institution:id,name,city,region');
+        $query = Accreditation::query()->with(['institution:id,name,city,region', 'inspections.findings']);
 
         if (!$isStaff) {
             // Training Officer / Training Institution: only their own institution.
@@ -101,6 +100,30 @@ class KanbanController extends Controller
     /** Append a `stage` attribute derived from the granular status. */
     protected function stageOf(Accreditation $a): string
     {
+        // An inspected application with outstanding (unresolved) findings is
+        // moved to Compliance so the institution can work corrective actions.
+        if ($a->status === Accreditation::STATUS_INSPECTED && $this->hasOutstandingFindings($a)) {
+            return 'compliance';
+        }
+
         return self::STAGE_OF[$a->status] ?? 'application';
+    }
+
+    /**
+     * True when any inspection of this accreditation has a finding that is
+     * still open (not yet resolved or verified). Resolved/verified findings
+     * are closed and do not keep the application in Compliance.
+     */
+    private function hasOutstandingFindings(Accreditation $a): bool
+    {
+        foreach ($a->inspections as $inspection) {
+            foreach ($inspection->findings as $finding) {
+                if (!in_array($finding->status, [Finding::STATUS_RESOLVED, Finding::STATUS_VERIFIED], true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

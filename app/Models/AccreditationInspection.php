@@ -67,4 +67,10 @@ class AccreditationInspection extends Model
     {
         return $this->belongsTo(User::class, 'accreditor_id');
     }
+
+    /** Findings raised against this inspection. */
+    public function findings()
+    {
+        return $this->hasMany(Finding::class, 'accreditation_inspection_id');
+    }
 }

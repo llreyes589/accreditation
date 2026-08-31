@@ -48,6 +48,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/residents', [DomainController::class, 'residents']);
             Route::post('/residents', [DomainController::class, 'storeResident']);
             Route::get('/residents/{resident}', [DomainController::class, 'residentPortfolio']);
+            Route::post('/residents/{resident}/advance-year', [DomainController::class, 'advanceResidentYear']);
+            Route::post('/residents/{resident}/review-completion', [DomainController::class, 'reviewResidentCompletion']);
             Route::post('/residents/{resident}/transfers', [DomainController::class, 'requestTransfer']);
             Route::get('/transfers/incoming', [DomainController::class, 'incomingTransfers']);
             Route::post('/transfers/{transfer}/accept', [DomainController::class, 'acceptTransfer']);

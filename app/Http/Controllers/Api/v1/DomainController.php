@@ -341,6 +341,24 @@ class DomainController extends Controller
         ]);
     }
 
+    /** Flowchart node R: advance the resident to the next year level. */
+    public function advanceResidentYear(Request $r, Resident $resident)
+    {
+        $i = $this->institution($r);
+        abort_unless($resident->institution_id === $i->id, 403);
+        $resident->advanceYear();
+        return response()->json($resident);
+    }
+
+    /** Flowchart node S: training officer reviews the resident's program completion. */
+    public function reviewResidentCompletion(Request $r, Resident $resident)
+    {
+        $i = $this->institution($r);
+        abort_unless($resident->institution_id === $i->id, 403);
+        $resident->markCompletionReviewed();
+        return response()->json($resident);
+    }
+
     public function requestTransfer(Request $r, Resident $resident)
     {
         $i = $this->institution($r);

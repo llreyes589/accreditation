@@ -146,6 +146,24 @@ class ResidentManagementFlowTest extends TestCase
         $bad->assertStatus(422);
     }
 
+    /** Slice 4 (flowchart R/S): advance year level + review completion. */
+    public function test_advance_year_and_review_completion(): void
+    {
+        $u = $this->officerWithInstitution();
+        [, $resident] = $this->createResident($u, 'AP');
+        $resident->update(['year_level' => 1]);
+
+        $adv = $this->actingAs($u, 'sanctum')
+            ->postJson("/api/residents/{$resident->id}/advance-year");
+        $adv->assertStatus(200)->assertJsonPath('year_level', 2);
+        $this->assertEquals(2, $resident->fresh()->year_level);
+
+        $rev = $this->actingAs($u, 'sanctum')
+            ->postJson("/api/residents/{$resident->id}/review-completion");
+        $rev->assertStatus(200);
+        $this->assertNotNull($resident->fresh()->completion_reviewed_at);
+    }
+
     public function test_transfer_requested(): void
     {
         $u = $this->officerWithInstitution();

@@ -96,4 +96,26 @@ class KanbanComplianceStageTest extends TestCase
         $after = $this->actingAs($this->admin(), 'sanctum')->getJson('/api/staff/kanban')->json('columns');
         $this->assertNotContains('ACC-' . $acc->id, collect(collect($after)->firstWhere('stage.id', 'compliance')['applications'])->pluck('id')->all());
     }
+
+    /** Accreditation in deliberation status must sit in the Deliberation stage. */
+    public function test_deliberation_status_lands_in_deliberation_stage(): void
+    {
+        $inst = Institution::create(['name' => 'Inst ' . uniqid(), 'registration_status' => 'approved']);
+        $acc = Accreditation::create([
+            'institution_id' => $inst->id,
+            'status' => Accreditation::STATUS_DELIBERATION,
+            'submitted_at' => now(),
+            'submission_type' => 'accreditation',
+        ]);
+
+        $res = $this->actingAs($this->admin(), 'sanctum')->getJson('/api/staff/kanban');
+        $res->assertStatus(200);
+
+        $deliberation = collect($res->json('columns'))->firstWhere('stage.id', 'deliberation');
+        $this->assertContains('ACC-' . $acc->id, collect($deliberation['applications'])->pluck('id')->all());
+
+        // It must NOT leak into Application (the bug).
+        $application = collect($res->json('columns'))->firstWhere('stage.id', 'application');
+        $this->assertNotContains('ACC-' . $acc->id, collect($application['applications'])->pluck('id')->all());
+    }
 }

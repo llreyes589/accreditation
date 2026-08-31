@@ -25,6 +25,7 @@ class KanbanController extends Controller
         Accreditation::STATUS_REQUIREMENTS_COMPLETED => 'for_inspection',
         Accreditation::STATUS_INSPECTION_SCHEDULED => 'for_inspection',
         Accreditation::STATUS_INSPECTED => 'inspection',
+        Accreditation::STATUS_DELIBERATION => 'deliberation',
         Accreditation::STATUS_APPROVED => 'decision',
         Accreditation::STATUS_PROBATIONARY => 'decision',
         Accreditation::STATUS_REJECTED => 'decision',

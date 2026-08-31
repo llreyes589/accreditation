@@ -176,6 +176,23 @@ class ResidentManagementFlowTest extends TestCase
         $this->assertNotNull($resident->fresh()->period_completed_at);
     }
 
+    /** Slice 6 (flowchart T/U): submit portfolio for review, then archive. */
+    public function test_submit_then_archive_portfolio(): void
+    {
+        $u = $this->officerWithInstitution();
+        [, $resident] = $this->createResident($u, 'AP');
+
+        $submit = $this->actingAs($u, 'sanctum')->postJson('/api/portfolio-archives', [
+            'resident_id' => $resident->id, 'summary' => 'Final portfolio',
+        ]);
+        $submit->assertStatus(201)->assertJsonPath('status', 'submitted');
+        $archiveId = $submit->json('id');
+
+        $archive = $this->actingAs($u, 'sanctum')
+            ->postJson("/api/portfolio-archives/{$archiveId}");
+        $archive->assertStatus(200)->assertJsonPath('status', 'archived');
+    }
+
     public function test_transfer_requested(): void
     {
         $u = $this->officerWithInstitution();

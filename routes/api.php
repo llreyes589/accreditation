@@ -72,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/remediation-plans/{plan}', [DomainController::class, 'updateRemediationPlan']);
             Route::get('/portfolio-archives', [DomainController::class, 'portfolioArchives']);
             Route::post('/portfolio-archives', [DomainController::class, 'storePortfolioArchive']);
+            Route::post('/portfolio-archives/{portfolio}', [DomainController::class, 'archivePortfolio']);
 
             /* Findings & Corrective Actions — institution (Training Officer) side */
             Route::get('/corrective-actions', [FindingsController::class, 'actions']);

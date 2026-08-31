@@ -552,14 +552,26 @@ class DomainController extends Controller
         $d = $r->validate([
             'resident_id' => 'required|exists:residents,id',
             'summary' => 'nullable|string',
-            'status' => 'nullable|in:archived,sealed',
+            'status' => 'nullable|in:submitted,archived,sealed',
             'archived_at' => 'nullable|date',
         ]);
         $resident = Resident::findOrFail($d['resident_id']);
         abort_unless($resident->institution_id === $i->id, 403);
+        // Flowchart T: a new archive starts as "submitted" (for institutional review)
+        // unless an explicit status is supplied.
         return response()->json(PortfolioArchive::create(array_merge($d, [
-            'status' => $d['status'] ?? 'archived',
+            'status' => $d['status'] ?? 'submitted',
             'archived_at' => $d['archived_at'] ?? now()->toDateString(),
         ])), 201);
+    }
+
+    /** Flowchart U: finalize a submitted portfolio archive. */
+    public function archivePortfolio(Request $r, $id)
+    {
+        $i = $this->institution($r);
+        $archive = PortfolioArchive::findOrFail($id);
+        abort_unless($archive->resident->institution_id === $i->id, 403);
+        $archive->update(['status' => 'archived', 'archived_at' => now()->toDateString()]);
+        return response()->json($archive);
     }
 }

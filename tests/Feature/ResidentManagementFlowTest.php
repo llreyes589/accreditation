@@ -130,6 +130,22 @@ class ResidentManagementFlowTest extends TestCase
         $this->assertContains($resident->fresh()->promotion_status, ['eligible', 'ineligible']);
     }
 
+    /** Slice 3 (flowchart K): RISE is an accepted exam type. */
+    public function test_rise_exam_type_accepted(): void
+    {
+        $u = $this->officerWithInstitution();
+        $quiz = $this->actingAs($u, 'sanctum')->postJson('/api/quizzes', [
+            'title' => 'RISE', 'type' => 'rise', 'max_score' => 100,
+        ]);
+        $quiz->assertStatus(201)->assertJsonPath('type', 'rise');
+
+        // An unknown type is rejected.
+        $bad = $this->actingAs($u, 'sanctum')->postJson('/api/quizzes', [
+            'title' => 'X', 'type' => 'midterm', 'max_score' => 100,
+        ]);
+        $bad->assertStatus(422);
+    }
+
     public function test_transfer_requested(): void
     {
         $u = $this->officerWithInstitution();

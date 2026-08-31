@@ -9,8 +9,8 @@ use Illuminate\Support\Carbon;
 class Resident extends Model
 {
     use SoftDeletes;
-    protected $fillable = ['user_id', 'institution_id', 'track', 'date_accepted', 'age_at_enrollment', 'year_level', 'promotion_status', 'promotion_evaluated_at'];
-    protected $casts = ['date_accepted' => 'date', 'promotion_evaluated_at' => 'datetime'];
+    protected $fillable = ['user_id', 'institution_id', 'track', 'date_accepted', 'expected_completion_date', 'age_at_enrollment', 'year_level', 'promotion_status', 'promotion_evaluated_at'];
+    protected $casts = ['date_accepted' => 'date', 'expected_completion_date' => 'date', 'promotion_evaluated_at' => 'datetime'];
     public function user()
     {
         return $this->belongsTo(User::class);

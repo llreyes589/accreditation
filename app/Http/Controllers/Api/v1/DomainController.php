@@ -283,7 +283,7 @@ class DomainController extends Controller
     }
     public function storeResident(Request $r)
     {
-        $d = $r->validate(['name' => 'required|string|max:255', 'username' => 'required|string|max:255|unique:users,username', 'email' => 'required|email|unique:users,email', 'password' => 'required|string|min:8', 'track' => 'required|in:AP,CP,AP_CP', 'date_accepted' => 'nullable|date|before_or_equal:today', 'age_at_enrollment' => 'nullable|integer|min:0']);
+        $d = $r->validate(['name' => 'required|string|max:255', 'username' => 'required|string|max:255|unique:users,username', 'email' => 'required|email|unique:users,email', 'password' => 'required|string|min:8', 'track' => 'required|in:AP,CP,AP_CP', 'date_accepted' => 'nullable|date|before_or_equal:today', 'expected_completion_date' => 'nullable|date|after_or_equal:today', 'year_level' => 'nullable|integer|min:1|max:10', 'age_at_enrollment' => 'nullable|integer|min:0']);
         $i = $this->institution($r);
         // Propagate/validate the resident's training track against the institution's
         // accredited tracks (t_f18a9c4a). AP_CP is treated as both AP and CP.
@@ -300,7 +300,7 @@ class DomainController extends Controller
         $u = DB::transaction(function () use ($d, $i) {
             $u = User::create(['name' => $d['name'], 'username' => $d['username'], 'email' => $d['email'], 'password' => Hash::make($d['password']), 'status' => 'pending']);
             $u->assignRole('Resident');
-            Resident::create(['user_id' => $u->id, 'institution_id' => $i->id, 'track' => $d['track'], 'date_accepted' => $d['date_accepted'] ?? null, 'age_at_enrollment' => $d['age_at_enrollment'] ?? null]);
+            Resident::create(['user_id' => $u->id, 'institution_id' => $i->id, 'track' => $d['track'], 'date_accepted' => $d['date_accepted'] ?? null, 'expected_completion_date' => $d['expected_completion_date'] ?? null, 'year_level' => $d['year_level'] ?? null, 'age_at_enrollment' => $d['age_at_enrollment'] ?? null]);
             return $u;
         });
         if (!$this->autoApprove) {

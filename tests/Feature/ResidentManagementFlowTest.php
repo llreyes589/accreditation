@@ -47,6 +47,31 @@ class ResidentManagementFlowTest extends TestCase
         $this->actingAs($u, 'sanctum')->getJson('/api/residents')->assertStatus(200)->assertJsonCount(1);
     }
 
+    /** Slice 1 (flowchart node C): year level + expected completion date persist at creation. */
+    public function test_resident_year_level_and_completion_date_saved(): void
+    {
+        $u = $this->officerWithInstitution();
+        $completion = now()->addYears(3)->toDateString();
+        $res = $this->actingAs($u, 'sanctum')->postJson('/api/residents', [
+            'name' => 'Res ' . uniqid(), 'username' => 'res_' . uniqid(),
+            'email' => uniqid() . '@x.ph', 'password' => 'password1',
+            'track' => 'AP', 'date_accepted' => now()->subYear()->toDateString(),
+            'year_level' => 2, 'expected_completion_date' => $completion, 'age_at_enrollment' => 27,
+        ]);
+        $res->assertStatus(201);
+        $resident = Resident::where('user_id', $res->json('id'))->first();
+        $this->assertNotNull($resident);
+        $this->assertEquals(2, $resident->year_level);
+        $this->assertEquals($completion, $resident->expected_completion_date->toDateString());
+
+        // Invalid year level is rejected.
+        $bad = $this->actingAs($u, 'sanctum')->postJson('/api/residents', [
+            'name' => 'Bad', 'username' => 'bad_' . uniqid(), 'email' => uniqid() . '@x.ph',
+            'password' => 'password1', 'track' => 'AP', 'year_level' => 99,
+        ]);
+        $bad->assertStatus(422);
+    }
+
     public function test_rotation_plan_created_and_assigned(): void
     {
         $u = $this->officerWithInstitution();
